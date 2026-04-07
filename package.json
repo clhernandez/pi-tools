@@ -1,0 +1,17 @@
+{
+  "name": "@nacho/pi-superpowers",
+  "version": "1.0.0",
+  "description": "Nacho's superpowers: subagent models configuration, brainstorming, systematic debugging, Rust skills, and more",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./extensions"],
+    "skills": ["./skills"]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-agent-core": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "@sinclair/typebox": "*"
+  }
+}
