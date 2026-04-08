@@ -3,9 +3,6 @@
  *
  * Detects image paths dragged into the editor and immediately replaces them
  * with [Image N] labels. Loads image data from disk for LLM attachment.
- *
- * Key insight: dragged files arrive as ONE large data chunk (the full path),
- * while normal keystrokes are always 1-4 chars. We use length as a heuristic.
  */
 import * as fs from "node:fs";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -26,23 +23,26 @@ const IMAGE_PATH_RE = /(\/[^\n]+\.(?:png|jpg|jpeg|gif|webp|bmp|tiff?))/gi;
 export default function (pi: ExtensionAPI) {
 	const pendingImages: { type: "image"; data: string; mimeType: string }[] = [];
 	let settingEditor = false;
+	let unregister: (() => void) | null = null;
 
+	// Register on every session_start (startup, reload, new, fork)
 	pi.on("session_start", (_event, ctx) => {
 		pendingImages.length = 0;
 
-		ctx.ui.onTerminalInput((data) => {
-			// Skip if we triggered this ourselves via setEditorText
+		// Unregister previous handler before re-registering
+		unregister?.();
+
+		unregister = ctx.ui.onTerminalInput((data) => {
 			if (settingEditor) return undefined;
 
-			// Strip bracketed paste markers if present (ESC[200~ ... ESC[201~)
-			// They may appear as literal chars or escape sequences
+			// Strip bracketed paste markers (ESC[200~ ... ESC[201~)
 			const cleaned = data
 				.replace(/\x1b\[200~/g, "")
 				.replace(/\x1b\[201~/g, "")
 				.replace(/\[200~/g, "")
 				.replace(/\[201~/g, "");
 
-			// Only process if this looks like a path (starts with /, longer than a normal keystroke)
+			// Only process chunks that look like file paths
 			if (!cleaned.includes("/") || cleaned.length < 10) return undefined;
 
 			IMAGE_PATH_RE.lastIndex = 0;
@@ -68,7 +68,6 @@ export default function (pi: ExtensionAPI) {
 
 			if (images.length === 0) return undefined;
 
-			// Replace editor content
 			const currentText = ctx.ui.getEditorText();
 			const prefix = currentText ? currentText + " " : "";
 			settingEditor = true;
