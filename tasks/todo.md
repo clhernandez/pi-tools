@@ -65,3 +65,43 @@
     - `reviewer` → `standard` → `openrouter/anthropic/claude-sonnet-4.6`
     - `planner` → `capable` → `openrouter/openai/gpt-5.4`
   - Implementer-role commits landed on `main` and were also exercised in a worktree during review/fix cycles.
+
+## Follow-up: image-label extension
+
+- [x] Reproduce drag-and-drop screenshot path behavior in pi
+- [x] Design editor-side replacement approach for `[Image N]` labels before submit
+- [x] Implement image-label extension in repo package
+- [x] Fix deletion/regression issues caused by over-broad terminal input interception
+- [x] Fix reload/update regression by unregistering terminal input handlers before re-register
+- [x] Verify drag immediately becomes `[Image 1]` and still sends real image on Enter
+- [x] Document results
+
+### Image-label Review
+
+- Root cause confirmed: dragged screenshots arrive through terminal input as a large path chunk (sometimes with bracketed paste markers), not as `event.images` attachments.
+- Working approach: intercept `ctx.ui.onTerminalInput`, detect path-like drag payloads, replace them in the editor immediately with `[Image N]`, and inject the actual image bytes during `input` event submission.
+- Important fix: unregister the old `onTerminalInput` handler on every `session_start`/reload to avoid stale duplicate handlers causing regressions after `pi update`.
+- Verified behavior:
+  - drag shows `[Image 1]` in editor before Enter: **yes**
+  - backspace/editing after insert works: **yes**
+  - Enter sends actual image attachment, not only text label: **yes**
+- Commits involved:
+  - `e88e5b9` — initial working image-label implementation
+  - `0ed1df6` — fix reload/update handler duplication regression
+
+## Follow-up: subagent UI redesign
+
+- [x] Explore current subagent renderer structure in repo extension
+- [x] Compare desired visual style from user examples and choose option B
+- [x] Implement cohesive UI redesign for single / parallel / chain subagent renders
+- [x] Test spinner integration hypothesis against built-in Loader component
+- [x] Roll back unsafe spinner experiment after hang/freeze during parallel rendering
+- [ ] Verify stable non-animated redesign via local reload/update workflow
+- [ ] Document results
+
+### Subagent UI Review (current state)
+
+- Stable redesign status: **implemented**, but currently without animated spinner reuse.
+- Root cause from failed spinner attempt: directly embedding `Loader` inside per-row tool rendering caused broken rendering semantics (spinner not visible per agent) and a frozen global working state that required force-closing the terminal.
+- Safe fallback applied: preserved the improved tree-based parallel layout and reverted to static `Working...` / `⋮` indicators.
+- Next investigation, if resumed later: study Pi's native loader lifecycle in interactive components before attempting another integration.
