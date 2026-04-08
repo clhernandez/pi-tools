@@ -66,8 +66,11 @@ function readImageAsBase64(filePath: string): { data: string; mimeType: string }
 }
 
 export default function (pi: ExtensionAPI) {
-	pi.on("input", async (event, _ctx) => {
+	pi.on("input", async (event, ctx) => {
 		if (event.source === "extension") return { action: "continue" };
+
+		// DEBUG — remove after diagnosing
+		ctx.ui.notify(`[image-label debug] text=${JSON.stringify(event.text?.slice(0, 80))} images=${event.images?.length ?? 0}`, "info");
 
 		const text = event.text ?? "";
 		const existingImages = event.images ?? [];
