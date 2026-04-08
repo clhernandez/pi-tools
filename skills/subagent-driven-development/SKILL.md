@@ -189,8 +189,8 @@ Model mappings are configured via the `get_subagent_models` tool. Call it once a
 
 **Dispatch pattern (via subagent extension):**
 ```
-# The subagent extension uses agent definitions (~/.pi/agent/agents/*.md)
-# which have model configured in their frontmatter.
+# The subagent extension uses agent definitions from project-local .pi/agents,
+# then ~/.pi/agent/agents, then packaged fallback agents when available.
 # Use worker agent for implementation, reviewer agent for reviews.
 
 # For parallel:

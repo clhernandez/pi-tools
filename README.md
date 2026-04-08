@@ -1,6 +1,6 @@
 # Nacho's Pi Superpowers
 
-A pi package with my personal toolkit: extension for subagent model configuration, brainstorming workflows, systematic debugging, Rust review/perf, and more.
+A pi package with my personal toolkit: native subagent support, extension for subagent model configuration, brainstorming workflows, systematic debugging, Rust review/perf, and more.
 
 ## Installation
 
@@ -37,6 +37,23 @@ Default models:
 - **cheap**: `minimax/minimax-m2.7` - Mechanical implementation tasks
 - **standard**: `anthropic/claude-sonnet-4.6` - Integration tasks, multi-file coordination
 - **capable**: `anthropic/claude-opus-4.6` - Architecture, design, review tasks
+
+### Extension: Subagent
+
+Provides Pi's native `subagent` tool directly from this package.
+
+Included resources:
+- `subagent` tool with single, parallel, and chain modes
+- Packaged fallback agents: `worker`, `reviewer`, `planner`, `scout`
+- Workflow prompts:
+  - `/implement`
+  - `/scout-and-plan`
+  - `/implement-and-review`
+
+Agent resolution priority:
+1. Project-local `.pi/agents`
+2. User-level `~/.pi/agent/agents`
+3. Packaged fallback agents from this package
 
 ### Skills
 

@@ -31,7 +31,7 @@ If project instructions say "don't use TDD" and a skill says "always use TDD," f
 
 ## Platform Adaptation
 
-Skills were originally written for Claude Code. In pi, use the `read` tool for loading skills/files, `bash` for running commands, `edit` for file changes, and `write` for creating files. Pi does not have a `Task` tool for subagents — execute tasks sequentially instead, or use bash to run background processes.
+Skills were originally written for Claude Code. In pi, use the `read` tool for loading skills/files, `bash` for running commands, `edit` for file changes, and `write` for creating files. When the native `subagent` extension is installed, use it for isolated subagent workflows; otherwise adapt skills to sequential execution or other Pi-native mechanisms.
 
 # Using Skills
 

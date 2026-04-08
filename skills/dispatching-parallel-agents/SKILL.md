@@ -91,7 +91,7 @@ Return: Summary of root cause and what you fixed.
 
 ## Available Agents
 
-Default agents from `~/.pi/agent/agents/`:
+Default agents come from project-local overrides, user agents, or packaged fallback agents:
 
 | Agent | Purpose | Tools |
 |-------|---------|-------|
@@ -100,7 +100,7 @@ Default agents from `~/.pi/agent/agents/`:
 | `reviewer` | Code review (read-only) | read, grep, find, ls, bash |
 | `worker` | General-purpose implementation | all default |
 
-Project-local agents: `.pi/agents/*.md` (requires `agentScope: "project"` or `"both"`).
+Project-local agents: `.pi/agents/*.md` (requires `agentScope: "project"` or `"both"`). If none override a name, packaged fallback agents from this package can satisfy the request.
 
 ## Output and Streaming
 
