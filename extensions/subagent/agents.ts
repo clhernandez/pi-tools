@@ -11,6 +11,7 @@ export interface AgentConfig {
   description: string;
   tools?: string[];
   model?: string;
+  modelRole?: "cheap" | "standard" | "capable";
   systemPrompt: string;
   source: AgentSource;
   filePath: string;
@@ -57,11 +58,18 @@ function loadAgentsFromDir(dir: string, source: AgentSource): AgentConfig[] {
       .map((tool: string) => tool.trim())
       .filter(Boolean);
 
+    const modelRole = frontmatter.modelRole?.trim();
+    const normalizedModelRole =
+      modelRole === "cheap" || modelRole === "standard" || modelRole === "capable"
+        ? modelRole
+        : undefined;
+
     agents.push({
       name: frontmatter.name,
       description: frontmatter.description,
       tools: tools && tools.length > 0 ? tools : undefined,
       model: frontmatter.model,
+      modelRole: normalizedModelRole,
       systemPrompt: body,
       source,
       filePath,

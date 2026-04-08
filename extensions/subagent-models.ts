@@ -3,13 +3,15 @@ import { DynamicBorder } from "@mariozechner/pi-coding-agent";
 import { Container, type SelectItem, SelectList, Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { StringEnum } from "@mariozechner/pi-ai";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-
-const CONFIG_PATH = join(process.env.HOME || "", ".pi/agent/subagent-models.json");
-
-type Role = "cheap" | "standard" | "capable";
-const ROLES: Role[] = ["cheap", "standard", "capable"];
+import {
+  CONFIG_PATH,
+  DEFAULT_CONFIG,
+  type ModelConfig,
+  type Role,
+  ROLES,
+  readSubagentModelConfig,
+  writeSubagentModelConfig,
+} from "./subagent/model-config.js";
 
 const ROLE_ICONS: Record<Role, string> = {
   cheap: "⚡",
@@ -17,42 +19,8 @@ const ROLE_ICONS: Record<Role, string> = {
   capable: "🧠",
 };
 
-interface ModelConfig {
-  description: string;
-  models: Record<Role, { model: string; description: string }>;
-}
-
-const DEFAULT_CONFIG: ModelConfig = {
-  description: "Model selection for subagent-driven-development skill",
-  models: {
-    cheap: {
-      model: "openrouter/minimax/minimax-m2.7",
-      description: "Mechanical implementation tasks, isolated functions, clear specs, 1-2 files",
-    },
-    standard: {
-      model: "openrouter/anthropic/claude-sonnet-4.6",
-      description: "Integration tasks, multi-file coordination, pattern matching, debugging",
-    },
-    capable: {
-      model: "openrouter/anthropic/claude-opus-4.6",
-      description: "Architecture, design, review tasks, broad codebase understanding",
-    },
-  },
-};
-
-function readConfig(): ModelConfig {
-  if (!existsSync(CONFIG_PATH)) {
-    const dir = dirname(CONFIG_PATH);
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    writeFileSync(CONFIG_PATH, JSON.stringify(DEFAULT_CONFIG, null, 2));
-    return { ...DEFAULT_CONFIG };
-  }
-  return JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
-}
-
-function writeConfig(config: ModelConfig): void {
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
-}
+const readConfig = readSubagentModelConfig;
+const writeConfig = writeSubagentModelConfig;
 
 // --- Model picker (same pattern as plan-config) ---
 

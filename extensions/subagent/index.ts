@@ -23,10 +23,18 @@ import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue } from "@mar
 import { Container, Markdown, Spacer, Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { type AgentConfig, type AgentScope, discoverAgents } from "./agents.js";
+import { readSubagentModelConfig } from "./model-config.js";
 
 const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
 const COLLAPSED_ITEM_COUNT = 10;
+
+function resolveAgentModel(agent: AgentConfig): string | undefined {
+	if (agent.model) return agent.model;
+	if (!agent.modelRole) return undefined;
+	const config = readSubagentModelConfig();
+	return config.models[agent.modelRole]?.model;
+}
 
 function formatTokens(count: number): string {
 	if (count < 1000) return count.toString();
@@ -261,8 +269,9 @@ async function runSingleAgent(
 		};
 	}
 
+	const resolvedModel = resolveAgentModel(agent);
 	const args: string[] = ["--mode", "json", "-p", "--no-session"];
-	if (agent.model) args.push("--model", agent.model);
+	if (resolvedModel) args.push("--model", resolvedModel);
 	if (agent.tools && agent.tools.length > 0) args.push("--tools", agent.tools.join(","));
 
 	let tmpPromptDir: string | null = null;
@@ -276,7 +285,7 @@ async function runSingleAgent(
 		messages: [],
 		stderr: "",
 		usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
-		model: agent.model,
+		model: resolvedModel,
 		step,
 	};
 

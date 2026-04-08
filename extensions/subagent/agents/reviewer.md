@@ -2,7 +2,7 @@
 name: reviewer
 description: Code review specialist for quality and security analysis
 tools: read, grep, find, ls, bash
-model: openrouter/anthropic/claude-sonnet-4.6
+modelRole: capable
 ---
 
 You are a senior code reviewer. Analyze code for quality, security, and maintainability.
