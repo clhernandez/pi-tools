@@ -5,13 +5,19 @@ A pi package with my personal toolkit: extension for subagent model configuratio
 ## Installation
 
 ```bash
-pi install git:github.com:nacho/pi-tools
+pi install git:github.com/Nachompiras/pi-tools
 ```
 
 Or try it without installing:
 
 ```bash
-pi -e git:github.com:nacho/pi-tools
+pi -e git:github.com/Nachompiras/pi-tools
+```
+
+To update:
+
+```bash
+pi update
 ```
 
 ## What's Included
