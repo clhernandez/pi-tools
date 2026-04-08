@@ -46,5 +46,22 @@
 - [x] Design changes to subagent-models and packaged agents for `implementer`
 - [x] Write spec for dedicated implementer role
 - [x] Write implementation plan for dedicated implementer role
-- [ ] Implement dedicated `implementer` role end-to-end
-- [ ] Verify worker uses implementer role while scout stays cheap
+- [x] Implement dedicated `implementer` role end-to-end
+- [x] Verify worker uses implementer role while scout stays cheap
+
+## Follow-up Review: dedicated implementer role
+
+- Added new role: **yes**
+- Old config migrated automatically: **yes**
+- Worker uses implementer role: **yes**
+- Scout still uses cheap role: **yes**
+- Reviewer now uses standard role: **yes**
+- Planner still uses capable role: **yes**
+- Notes:
+  - Migration verified from an existing 3-role config: `implementer` was absent before update and present after calling `get_subagent_models`.
+  - Runtime mapping verified through Pi RPC:
+    - `scout` → `cheap` → `openrouter/minimax/minimax-m2.7`
+    - `worker` → `implementer` → `openrouter/minimax/minimax-m2.7`
+    - `reviewer` → `standard` → `openrouter/anthropic/claude-sonnet-4.6`
+    - `planner` → `capable` → `openrouter/openai/gpt-5.4`
+  - Implementer-role commits landed on `main` and were also exercised in a worktree during review/fix cycles.
