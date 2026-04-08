@@ -39,3 +39,12 @@
   - passing repro after fix: reviewer now uses configured capable model
   - additional passing checks: scout→cheap, worker→standard, planner→capable
 - Commit: `d9eeb67 fix: resolve packaged subagent models from roles`
+
+## Follow-up: dedicated implementer role
+
+- [x] Decide direction with user: use dedicated `implementer` role instead of overloading `cheap`
+- [x] Design changes to subagent-models and packaged agents for `implementer`
+- [x] Write spec for dedicated implementer role
+- [x] Write implementation plan for dedicated implementer role
+- [ ] Implement dedicated `implementer` role end-to-end
+- [ ] Verify worker uses implementer role while scout stays cheap
