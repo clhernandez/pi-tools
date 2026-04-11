@@ -6,15 +6,13 @@ Use this template when dispatching a code quality reviewer subagent.
 
 **Only dispatch after spec compliance review passes.**
 
-## Dispatch Example (Pi)
-
-```bash
-MODEL=$(cat ~/.pi/agent/subagent-models.json | jq -r '.models.capable.model')
-
-pi --model "$MODEL" 'You are reviewing code quality for Task N. What was implemented: [from report]. Review the code for: clean architecture, tests, no YAGNI, follows patterns. Also check: single responsibility per file, proper decomposition. Return: Strengths, Issues (Critical/Important/Minor), Assessment.'
+## Dispatch Example
 
 ```
-Task tool (superpowers:code-reviewer):
+Agent({ subagent_type: "reviewer", prompt: "...", description: "Code quality review for Task N" })
+```
+
+Agent({ subagent_type: "reviewer", ... }):
   Use template at requesting-code-review/code-reviewer.md
 
   WHAT_WAS_IMPLEMENTED: [from implementer's report]
@@ -22,7 +20,6 @@ Task tool (superpowers:code-reviewer):
   BASE_SHA: [commit before task]
   HEAD_SHA: [current commit]
   DESCRIPTION: [task summary]
-```
 
 **In addition to standard code quality concerns, the reviewer should check:**
 - Does each file have one clear responsibility with a well-defined interface?

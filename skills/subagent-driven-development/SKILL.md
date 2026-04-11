@@ -11,7 +11,7 @@ Execute plan by dispatching fresh subagent per task, with two-stage review after
 
 **Core principle:** Fresh subagent per task + two-stage review (spec then quality) = high quality, fast iteration
 
-**Parallelism:** Tasks that touch independent files can run in parallel using the native `subagent` extension (`tasks: [...]` mode). Tasks with shared file dependencies must run sequentially.
+**Parallelism:** Tasks that touch independent files can run in parallel using `Agent()` with `run_in_background: true`, then collecting results with `get_subagent_result()`. Tasks with shared file dependencies must run sequentially.
 
 ## When to Use
 
@@ -50,26 +50,26 @@ digraph process {
 
     subgraph cluster_parallel {
         label="Parallel Batch (independent tasks)";
-        "Dispatch parallel implementer subagents via subagent extension (tasks:[...])" [shape=box];
-        "All parallel implementers complete" [shape=box];
-        "Dispatch parallel spec reviewers (tasks:[...])" [shape=box];
+        "Dispatch parallel implementers via Agent(run_in_background:true)" [shape=box];
+        "Collect all results via get_subagent_result(wait:true)" [shape=box];
+        "Dispatch parallel spec reviewers via Agent(run_in_background:true)" [shape=box];
         "All spec reviews pass?" [shape=diamond];
         "Fix failing tasks (re-dispatch implementers)" [shape=box];
-        "Dispatch parallel code quality reviewers (tasks:[...])" [shape=box];
+        "Dispatch parallel code quality reviewers via Agent(run_in_background:true)" [shape=box];
         "All quality reviews pass?" [shape=diamond];
         "Fix quality issues (re-dispatch implementers)" [shape=box];
     }
 
     subgraph cluster_sequential {
         label="Sequential (dependent tasks)";
-        "Dispatch implementer subagent (./implementer-prompt.md)" [shape=box];
+        "Dispatch implementer via Agent() (./implementer-prompt.md)" [shape=box];
         "Implementer subagent asks questions?" [shape=diamond];
-        "Answer questions, provide context" [shape=box];
+        "Answer questions via steer_subagent()" [shape=box];
         "Implementer subagent implements, tests, commits, self-reviews" [shape=box];
-        "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [shape=box];
+        "Dispatch spec reviewer via Agent() (./spec-reviewer-prompt.md)" [shape=box];
         "Spec reviewer confirms code matches spec?" [shape=diamond];
         "Fix spec gaps" [shape=box];
-        "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [shape=box];
+        "Dispatch code quality reviewer via Agent() (./code-quality-reviewer-prompt.md)" [shape=box];
         "Code quality reviewer approves?" [shape=diamond];
         "Fix quality issues (sequential)" [shape=box];
         "Mark task complete in TodoWrite" [shape=box];
@@ -80,45 +80,45 @@ digraph process {
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
     "Read plan, extract all tasks with full text, note context, create TodoWrite" -> "Analyze task independence: which tasks touch independent files?";
-    "Analyze task independence: which tasks touch independent files?" -> "Dispatch parallel implementer subagents via subagent extension (tasks:[...])" [label="independent"];
-    "Analyze task independence: which tasks touch independent files?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="dependent"];
+    "Analyze task independence: which tasks touch independent files?" -> "Dispatch parallel implementers via Agent(run_in_background:true)" [label="independent"];
+    "Analyze task independence: which tasks touch independent files?" -> "Dispatch implementer via Agent() (./implementer-prompt.md)" [label="dependent"];
 
-    "Dispatch parallel implementer subagents via subagent extension (tasks:[...])" -> "All parallel implementers complete";
-    "All parallel implementers complete" -> "Dispatch parallel spec reviewers (tasks:[...])";
-    "Dispatch parallel spec reviewers (tasks:[...])" -> "All spec reviews pass?";
+    "Dispatch parallel implementers via Agent(run_in_background:true)" -> "Collect all results via get_subagent_result(wait:true)";
+    "Collect all results via get_subagent_result(wait:true)" -> "Dispatch parallel spec reviewers via Agent(run_in_background:true)";
+    "Dispatch parallel spec reviewers via Agent(run_in_background:true)" -> "All spec reviews pass?";
     "All spec reviews pass?" -> "Fix failing tasks (re-dispatch implementers)" [label="no"];
-    "Fix failing tasks (re-dispatch implementers)" -> "Dispatch parallel spec reviewers (tasks:[...])";
-    "All spec reviews pass?" -> "Dispatch parallel code quality reviewers (tasks:[...])" [label="yes"];
-    "Dispatch parallel code quality reviewers (tasks:[...])" -> "All quality reviews pass?";
+    "Fix failing tasks (re-dispatch implementers)" -> "Dispatch parallel spec reviewers via Agent(run_in_background:true)";
+    "All spec reviews pass?" -> "Dispatch parallel code quality reviewers via Agent(run_in_background:true)" [label="yes"];
+    "Dispatch parallel code quality reviewers via Agent(run_in_background:true)" -> "All quality reviews pass?";
     "All quality reviews pass?" -> "Fix quality issues (re-dispatch implementers)" [label="no"];
-    "Fix quality issues (re-dispatch implementers)" -> "Dispatch parallel code quality reviewers (tasks:[...])";
+    "Fix quality issues (re-dispatch implementers)" -> "Dispatch parallel code quality reviewers via Agent(run_in_background:true)";
     "All quality reviews pass?" -> "More tasks remain?" [label="yes"];
 
-    "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer subagent asks questions?";
-    "Implementer subagent asks questions?" -> "Answer questions, provide context" [label="yes"];
-    "Answer questions, provide context" -> "Dispatch implementer subagent (./implementer-prompt.md)";
+    "Dispatch implementer via Agent() (./implementer-prompt.md)" -> "Implementer subagent asks questions?";
+    "Implementer subagent asks questions?" -> "Answer questions via steer_subagent()" [label="yes"];
+    "Answer questions via steer_subagent()" -> "Dispatch implementer via Agent() (./implementer-prompt.md)";
     "Implementer subagent asks questions?" -> "Implementer subagent implements, tests, commits, self-reviews" [label="no"];
-    "Implementer subagent implements, tests, commits, self-reviews" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)";
-    "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" -> "Spec reviewer confirms code matches spec?";
+    "Implementer subagent implements, tests, commits, self-reviews" -> "Dispatch spec reviewer via Agent() (./spec-reviewer-prompt.md)";
+    "Dispatch spec reviewer via Agent() (./spec-reviewer-prompt.md)" -> "Spec reviewer confirms code matches spec?";
     "Spec reviewer confirms code matches spec?" -> "Fix spec gaps" [label="no"];
-    "Fix spec gaps" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [label="re-review"];
-    "Spec reviewer confirms code matches spec?" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="yes"];
-    "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" -> "Code quality reviewer approves?";
+    "Fix spec gaps" -> "Dispatch spec reviewer via Agent() (./spec-reviewer-prompt.md)" [label="re-review"];
+    "Spec reviewer confirms code matches spec?" -> "Dispatch code quality reviewer via Agent() (./code-quality-reviewer-prompt.md)" [label="yes"];
+    "Dispatch code quality reviewer via Agent() (./code-quality-reviewer-prompt.md)" -> "Code quality reviewer approves?";
     "Code quality reviewer approves?" -> "Fix quality issues (sequential)" [label="no"];
-    "Fix quality issues (sequential)" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="re-review"];
+    "Fix quality issues (sequential)" -> "Dispatch code quality reviewer via Agent() (./code-quality-reviewer-prompt.md)" [label="re-review"];
     "Code quality reviewer approves?" -> "Mark task complete in TodoWrite" [label="yes"];
     "Mark task complete in TodoWrite" -> "More tasks remain?";
 
-    "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes - dependent"];
-    "More tasks remain?" -> "Dispatch parallel implementer subagents via subagent extension (tasks:[...])" [label="yes - independent batch"];
+    "More tasks remain?" -> "Dispatch implementer via Agent() (./implementer-prompt.md)" [label="yes - dependent"];
+    "More tasks remain?" -> "Dispatch parallel implementers via Agent(run_in_background:true)" [label="yes - independent batch"];
     "More tasks remain?" -> "Dispatch final code reviewer subagent for entire implementation" [label="no"];
     "Dispatch final code reviewer subagent for entire implementation" -> "Use superpowers:finishing-a-development-branch";
 }
 ```
 
-## Parallelism with the Subagent Extension
+## Parallelism with Agent()
 
-The `subagent` extension (from pi) supports native parallel execution via the `tasks: [...]` parameter. Use it when tasks are independent (no shared file edits).
+The `@tintinweb/pi-subagents` package provides `Agent()`, `get_subagent_result()`, and `steer_subagent()` tools. Use `run_in_background: true` for parallel execution when tasks are independent (no shared file edits).
 
 ### Assessing Independence
 
@@ -134,28 +134,37 @@ A task is independent if:
 
 ```
 # Implementers in parallel (all touch independent files)
-subagent(tasks: [
-  { agent: "worker", task: "Implement Task 1: [full text + context]" },
-  { agent: "worker", task: "Implement Task 2: [full text + context]" },
-  { agent: "worker", task: "Implement Task 3: [full text + context]" }
-])
+Agent({ subagent_type: "worker", prompt: "Implement Task 1: [full text + context]", description: "Task 1: hook install script", run_in_background: true })
+# → returns agent_id: "agent-1"
+Agent({ subagent_type: "worker", prompt: "Implement Task 2: [full text + context]", description: "Task 2: recovery modes", run_in_background: true })
+# → returns agent_id: "agent-2"
+Agent({ subagent_type: "worker", prompt: "Implement Task 3: [full text + context]", description: "Task 3: config parser", run_in_background: true })
+# → returns agent_id: "agent-3"
 
-# After all complete, reviewers in parallel
-subagent(tasks: [
-  { agent: "reviewer", task: "Spec compliance review for Task 1: [requirements + implementer report]" },
-  { agent: "reviewer", task: "Spec compliance review for Task 2: [requirements + implementer report]" },
-  { agent: "reviewer", task: "Spec compliance review for Task 3: [requirements + implementer report]" }
-])
+# Wait for all to complete
+get_subagent_result({ agent_id: "agent-1", wait: true })
+get_subagent_result({ agent_id: "agent-2", wait: true })
+get_subagent_result({ agent_id: "agent-3", wait: true })
 
-# After all spec reviews pass, quality reviewers in parallel
-subagent(tasks: [
-  { agent: "reviewer", task: "Code quality review for Task 1: [base sha, head sha, description]" },
-  { agent: "reviewer", task: "Code quality review for Task 2: [base sha, head sha, description]" },
-  { agent: "reviewer", task: "Code quality review for Task 3: [base sha, head sha, description]" }
-])
+# After all complete, spec reviewers in parallel
+Agent({ subagent_type: "reviewer", prompt: "Spec compliance for Task 1: [requirements + T1 report]", description: "Spec review: Task 1", run_in_background: true })
+Agent({ subagent_type: "reviewer", prompt: "Spec compliance for Task 2: [requirements + T2 report]", description: "Spec review: Task 2", run_in_background: true })
+Agent({ subagent_type: "reviewer", prompt: "Spec compliance for Task 3: [requirements + T3 report]", description: "Spec review: Task 3", run_in_background: true })
+
+# Wait for all, then dispatch quality reviewers the same way
 ```
 
-**Max concurrency:** The extension runs up to 4 agents concurrently, max 8 per batch. Split larger batches.
+### Sequential Dispatch Pattern
+
+```
+# Single foreground agent (blocks until complete)
+Agent({ subagent_type: "worker", prompt: "Implement Task 4: [full text + context]", description: "Task 4: integration layer" })
+
+# If the agent needs guidance mid-task:
+steer_subagent({ agent_id: "agent-4", message: "The config format changed — use TOML not YAML. See src/config.toml for the schema." })
+```
+
+**Max concurrency:** Up to 4 agents run concurrently by default. Configurable via `/agents` → Settings.
 
 **Streaming:** All parallel agents stream updates simultaneously. You see live progress from all tasks at once.
 
@@ -168,62 +177,37 @@ When some parallel tasks fail and others succeed:
 
 ## Model Selection
 
-Use the least powerful model that can handle each role to conserve cost and increase speed.
+Models are configured per agent type. There are three ways to set a model, in order of precedence:
 
-**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a fast, cheap model. Most implementation tasks are mechanical when the plan is well-specified.
+1. **`model` parameter on Agent() call** — overrides everything for that specific dispatch:
+   ```
+   Agent({ subagent_type: "worker", prompt: "...", description: "...", model: "haiku" })
+   ```
 
-**Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): use a standard model.
+2. **Agent `.md` frontmatter** — set the `model:` field in the agent definition file (e.g., `agents/worker.md`). Applies to all dispatches of that agent type unless overridden by (1). Supports fuzzy names (e.g., `"haiku"`, `"sonnet"`) or exact identifiers (e.g., `"anthropic/claude-sonnet-4-6"`).
 
-**Architecture, design, and review tasks**: use the most capable available model.
+3. **Inherit parent model** — if neither (1) nor (2) specifies a model, the subagent inherits the parent agent's model.
 
-**Task complexity signals:**
-- Touches 1-2 files with a complete spec → cheap model
-- Touches multiple files with integration concerns → standard model
-- Requires design judgment or broad codebase understanding → most capable model
+**Agent types:**
+- Custom agents defined in `agents/*.md` files: `worker`, `scout`, `reviewer`, `planner`
+- Built-in agent types: `general-purpose`, `Explore`, `Plan`
 
-## Model Configuration for Pi
-
-Model mappings are configured via the `get_subagent_models` tool. Call it once at the start of the workflow to load the configuration, then use the models when dispatching subagents.
-
-**IMPORTANT — call `get_subagent_models` before dispatching any subagent.** Never hardcode model names.
-
-**Dispatch pattern (via subagent extension):**
-```
-# The subagent extension uses agent definitions from project-local .pi/agents,
-# then ~/.pi/agent/agents, then packaged fallback agents when available.
-# Use worker agent for implementation, reviewer agent for reviews.
-
-# For parallel:
-subagent(tasks: [
-  { agent: "worker", task: "..." },
-  { agent: "worker", task: "..." }
-])
-
-# For sequential (single):
-subagent(agent: "worker", task: "...")
-```
-
-**To change models:** Run `/subagent-config` interactively, or use `update_subagent_model` to change a specific role.
+**Guideline:** Use the least powerful model that can handle each task to conserve cost and increase speed. Most implementation tasks are mechanical when the plan is well-specified — a fast model suffices. Reserve capable models for architecture, design, integration, and review tasks.
 
 ## Cost Tracking
 
-Each subagent reports its own usage stats in the tool result. In parallel mode, totals are aggregated automatically.
+Each subagent reports its own usage stats in the result. The format is:
 
-**Parallel mode stats:**
 ```
-✓ parallel 3/3 tasks
-  ─── worker ✓
-  → edit src/auth.ts
-  3 turns ↑1.2k ↓800 $0.0024 ctx:8k model
-  ─── worker ✓
-  ...
-Total: 9 turns ↑3.6k ↓2.4k $0.0072 ctx:24k
+⟳3 · 12 tool uses · 8.2k token · 14s
 ```
+
+This shows: turns, tool invocations, token usage, and wall-clock time.
 
 **Quick mental math:**
-- 5 tasks × 3 subagent rounds (implementers + 2 reviewer rounds) = 15 subagent runs
+- 5 tasks x 3 subagent rounds (implementers + 2 reviewer rounds) = 15 subagent runs
 - Parallel: 3 rounds instead of 15 sequential dispatches
-- If each averages $0.005, total ≈ $0.075
+- If each averages $0.005, total ~ $0.075
 
 ## Handling Implementer Status
 
@@ -236,8 +220,8 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 **NEEDS_CONTEXT:** The implementer needs information that wasn't provided. Provide the missing context and re-dispatch.
 
 **BLOCKED:** The implementer cannot complete the task. Assess the blocker:
-1. If it's a context problem, provide more context and re-dispatch with the same model
-2. If the task requires more reasoning, re-dispatch with a more capable model
+1. If it's a context problem, provide more context and re-dispatch
+2. If the task requires more reasoning, re-dispatch with a more capable model via the `model` parameter
 3. If the task is too large, break it into smaller pieces
 4. If the plan itself is wrong, escalate to the human
 
@@ -263,46 +247,49 @@ You: I'm using Subagent-Driven Development to execute this plan.
 === Parallel Batch: Tasks 1, 2, 3 ===
 
 [Dispatch parallel implementers]
-subagent(tasks: [
-  { agent: "worker", task: "Implement Task 1: Hook installation script. [full text]..." },
-  { agent: "worker", task: "Implement Task 2: Recovery modes. [full text]..." },
-  { agent: "worker", task: "Implement Task 3: Config parser. [full text]..." }
-])
+Agent({ subagent_type: "worker", prompt: "Implement Task 1: Hook installation script. [full text]...", description: "Task 1: hook install", run_in_background: true })
+# → agent_id: "agent-1"
+Agent({ subagent_type: "worker", prompt: "Implement Task 2: Recovery modes. [full text]...", description: "Task 2: recovery modes", run_in_background: true })
+# → agent_id: "agent-2"
+Agent({ subagent_type: "worker", prompt: "Implement Task 3: Config parser. [full text]...", description: "Task 3: config parser", run_in_background: true })
+# → agent_id: "agent-3"
 
 [Live streaming: all 3 agents working simultaneously]
-[Task 1 ✓, Task 2 ✓, Task 3 ✓ — all complete]
+
+[Collect results]
+get_subagent_result({ agent_id: "agent-1", wait: true })  # ✓
+get_subagent_result({ agent_id: "agent-2", wait: true })  # ✓
+get_subagent_result({ agent_id: "agent-3", wait: true })  # ✓
 
 [Dispatch parallel spec reviewers]
-subagent(tasks: [
-  { agent: "reviewer", task: "Spec compliance for Task 1: [requirements + T1 report]" },
-  { agent: "reviewer", task: "Spec compliance for Task 2: [requirements + T2 report]" },
-  { agent: "reviewer", task: "Spec compliance for Task 3: [requirements + T3 report]" }
-])
+Agent({ subagent_type: "reviewer", prompt: "Spec compliance for Task 1: [requirements + T1 report]", description: "Spec review: Task 1", run_in_background: true })
+Agent({ subagent_type: "reviewer", prompt: "Spec compliance for Task 2: [requirements + T2 report]", description: "Spec review: Task 2", run_in_background: true })
+Agent({ subagent_type: "reviewer", prompt: "Spec compliance for Task 3: [requirements + T3 report]", description: "Spec review: Task 3", run_in_background: true })
 
+[Collect spec review results]
 Task 1: ✅ Spec compliant
 Task 2: ❌ Missing: Progress reporting (spec says "report every 100 items")
 Task 3: ✅ Spec compliant
 
 [Re-dispatch only Task 2 implementer to fix]
-subagent(agent: "worker", task: "Fix Task 2: add progress reporting every 100 items. [details]")
+Agent({ subagent_type: "worker", prompt: "Fix Task 2: add progress reporting every 100 items. [details]", description: "Fix Task 2: progress reporting" })
 
 [Re-run spec review for Task 2 only]
-subagent(agent: "reviewer", task: "Re-review spec compliance for Task 2")
+Agent({ subagent_type: "reviewer", prompt: "Re-review spec compliance for Task 2: [requirements + fix report]", description: "Re-review: Task 2 spec" })
 Task 2: ✅ Spec compliant
 
 [Dispatch parallel code quality reviewers for all 3]
-subagent(tasks: [
-  { agent: "reviewer", task: "Code quality for Task 1: base sha X, head sha Y..." },
-  { agent: "reviewer", task: "Code quality for Task 2: base sha X, head sha Y..." },
-  { agent: "reviewer", task: "Code quality for Task 3: base sha X, head sha Y..." }
-])
+Agent({ subagent_type: "reviewer", prompt: "Code quality for Task 1: base sha X, head sha Y...", description: "Quality review: Task 1", run_in_background: true })
+Agent({ subagent_type: "reviewer", prompt: "Code quality for Task 2: base sha X, head sha Y...", description: "Quality review: Task 2", run_in_background: true })
+Agent({ subagent_type: "reviewer", prompt: "Code quality for Task 3: base sha X, head sha Y...", description: "Quality review: Task 3", run_in_background: true })
 
+[Collect quality review results]
 All ✅ — mark Tasks 1, 2, 3 complete in TodoWrite
 
 === Sequential: Task 4 (depends on Task 3) ===
 
 [Dispatch single implementer]
-subagent(agent: "worker", task: "Implement Task 4: [full text + Task 3 output]")
+Agent({ subagent_type: "worker", prompt: "Implement Task 4: [full text + Task 3 output]", description: "Task 4: integration layer" })
 ...
 [spec review → quality review → complete]
 
@@ -320,7 +307,7 @@ subagent(agent: "worker", task: "Implement Task 4: [full text + Task 3 output]")
 - Subagents follow TDD naturally
 - Fresh context per task (no confusion)
 - Parallel-safe (subagents don't interfere)
-- Subagent can ask questions (before AND during work)
+- Subagent can ask questions (before AND during work via steer_subagent)
 
 **vs. Executing Plans:**
 - Same session (no handoff)
@@ -328,7 +315,7 @@ subagent(agent: "worker", task: "Implement Task 4: [full text + Task 3 output]")
 - Review checkpoints automatic
 
 **Parallelism gains:**
-- Independent tasks run simultaneously (up to 4 concurrent)
+- Independent tasks run simultaneously (up to 4 concurrent, configurable via `/agents` → Settings)
 - All 3 reviewer rounds run in parallel per batch
 - Streaming shows live progress from all agents at once
 - Significant wall-clock time reduction for multi-task plans
@@ -367,7 +354,6 @@ subagent(agent: "worker", task: "Implement Task 4: [full text + Task 3 output]")
 - Let implementer self-review replace actual review (both are needed)
 - **Start code quality review before spec compliance is ✅** (wrong order)
 - Move to next task while either review has open issues
-- Run more than 8 tasks in a single parallel batch (extension limit)
 
 **Parallel is SAFE for:**
 - Reviewers (read-only, never edit code)
@@ -378,7 +364,7 @@ subagent(agent: "worker", task: "Implement Task 4: [full text + Task 3 output]")
 - Tasks where Task B needs Task A's output
 
 **If subagent asks questions:**
-- Answer clearly and completely
+- Answer clearly and completely via `steer_subagent()`
 - Provide additional context if needed
 - Don't rush them into implementation
 

@@ -4,15 +4,13 @@ Use this template when dispatching a spec compliance reviewer subagent.
 
 **Purpose:** Verify implementer built what was requested (nothing more, nothing less)
 
-## Dispatch Example (Pi)
-
-```bash
-MODEL=$(cat ~/.pi/agent/subagent-models.json | jq -r '.models.capable.model')
-
-pi --model "$MODEL" 'You are reviewing spec compliance for Task N. What was requested: [full task requirements]. What implementer claims they built: [from report]. Review the code and report: ✅ Spec compliant or ❌ Issues found with specific file:line references.'
+## Dispatch Example
 
 ```
-Task tool (general-purpose):
+Agent({ subagent_type: "reviewer", prompt: "...", description: "Review spec compliance for Task N" })
+```
+
+Agent({ subagent_type: "reviewer", ... }):
   description: "Review spec compliance for Task N"
   prompt: |
     You are reviewing whether an implementation matches its specification.
@@ -65,4 +63,3 @@ Task tool (general-purpose):
     Report:
     - ✅ Spec compliant (if everything matches after code inspection)
     - ❌ Issues found: [list specifically what's missing or extra, with file:line references]
-```

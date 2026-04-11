@@ -2,17 +2,13 @@
 
 Use this template when dispatching an implementer subagent.
 
-## Dispatch Example (Pi)
-
-```bash
-# Get model from config (implementer role = dedicated coding role; falls back to cheap for mechanical tasks)
-MODEL=$(cat ~/.pi/agent/subagent-models.json | jq -r '.models.implementer.model // .models.cheap.model')
-
-# Dispatch
-pi --model "$MODEL" 'You are implementing Task 1: [task name]. Task description: [full text]. Context: [scene-setting]. Work from: [directory].'
+## Dispatch Example
 
 ```
-Task tool (general-purpose):
+Agent({ subagent_type: "worker", prompt: "...", description: "Implement Task N: [task name]" })
+```
+
+Agent({ subagent_type: "worker", ... }):
   description: "Implement Task N: [task name]"
   prompt: |
     You are implementing Task N: [task name]
@@ -119,4 +115,3 @@ Task tool (general-purpose):
     Use DONE_WITH_CONCERNS if you completed the work but have doubts about correctness.
     Use BLOCKED if you cannot complete the task. Use NEEDS_CONTEXT if you need
     information that wasn't provided. Never silently produce work you're unsure about.
-```

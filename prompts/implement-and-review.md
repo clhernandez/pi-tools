@@ -1,10 +1,10 @@
 ---
 description: Worker implements, reviewer reviews, worker applies feedback
 ---
-Use the subagent tool with the chain parameter to execute this workflow:
+Execute this workflow using three sequential Agent calls:
 
-1. First, use the "worker" agent to implement: $@
-2. Then, use the "reviewer" agent to review the implementation from the previous step (use {previous} placeholder)
-3. Finally, use the "worker" agent to apply the feedback from the review (use {previous} placeholder)
+1. Use Agent({ subagent_type: "worker", prompt: "Implement: $@", description: "Implement: $@" }) to implement the task
+2. Use Agent({ subagent_type: "reviewer", prompt: "Review this implementation:\n\n[paste worker result]", description: "Review implementation" }) to review the work
+3. Use Agent({ subagent_type: "worker", prompt: "Apply this review feedback:\n\n[paste reviewer result]", description: "Apply review feedback" }) to apply the feedback
 
-Execute this as a chain, passing output between steps via {previous}.
+Run each agent in foreground (sequentially). Pass the full result of each step as context to the next.
