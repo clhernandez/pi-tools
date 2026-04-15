@@ -11,7 +11,9 @@
  *   /pokemon shiny eevee — force shiny specific
  *   /pokemon walk        — all roam free
  *   /pokemon stay        — lineup mode
- *   /pokemon off         — dismiss all
+ *   /pokemon on          — enable auto-start (spawns on every new console)
+ *   /pokemon off         — disable auto-start & dismiss all
+ *   /pokemon dismiss     — dismiss all (keeps auto-start setting)
  *   /pokemon pop         — remove yours
  *   /pokemon list        — show suggestions
  */
@@ -29,6 +31,28 @@ const SWIFT_SOURCE = join(EXTENSION_DIR, "PokemonOverlay.swift");
 const SWIFT_BINARY = join(EXTENSION_DIR, ".build", "PokemonOverlay");
 const SPRITES_DIR = join(EXTENSION_DIR, "sprites");
 const SLOTS_DIR = join(EXTENSION_DIR, ".slots");
+const CONFIG_FILE = join(EXTENSION_DIR, ".config.json");
+
+// ── Persistent config ───────────────────────────────────────────────
+
+interface PokemonConfig {
+  autoStart: boolean;
+  lastPokemon?: string;  // remember last chosen name
+  lastShiny?: boolean;
+}
+
+function loadConfig(): PokemonConfig {
+  try {
+    if (existsSync(CONFIG_FILE)) {
+      return JSON.parse(readFileSync(CONFIG_FILE, "utf8"));
+    }
+  } catch {}
+  return { autoStart: false };
+}
+
+function saveConfig(config: PokemonConfig) {
+  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+}
 
 const RANDOM_POOL = [
   "pikachu", "charmander", "bulbasaur", "squirtle", "eevee",
@@ -254,6 +278,7 @@ export default function pokemonBuddy(pi: ExtensionAPI) {
   let building = false;
   let waitingForAnswer = false;
   let working = false;
+  const config = loadConfig();
 
   function sendAll(type: string, value?: string) {
     for (const b of buddies) send(b.proc, type, value);
@@ -349,12 +374,52 @@ export default function pokemonBuddy(pi: ExtensionAPI) {
 
   // ── Command ──────────────────────────────────────────────────────
 
+  // ── Auto-start on new console ─────────────────────────────────
+
+  async function autoStartBuddy() {
+    if (!config.autoStart) return;
+    // Small delay to let the TUI initialize
+    await new Promise((r) => setTimeout(r, 800));
+    const name = config.lastPokemon || randomPokemon();
+    const fakeCtx = {
+      ui: {
+        notify: (msg: string, _level: string) => {
+          // silent auto-start — no notifications on spawn
+        },
+      },
+    };
+    await addBuddy(name, fakeCtx, config.lastShiny);
+  }
+
+  autoStartBuddy();
+
   pi.registerCommand("pokemon", {
-    description: "Pokémon buddy! /pokemon [name|shiny|shiny name|walk|stay|off|pop|list]",
+    description: "Pokémon buddy! /pokemon [name|shiny|on|off|dismiss|walk|stay|pop|list]",
     handler: async (args, ctx) => {
       const arg = (args || "").trim().toLowerCase();
 
-      if (arg === "off" || arg === "dismiss" || arg === "bye") { removeAll(ctx); return; }
+      // /pokemon on — enable auto-start
+      if (arg === "on") {
+        config.autoStart = true;
+        saveConfig(config);
+        ctx.ui.notify("🟢 Pokémon auto-start enabled! A buddy will greet you on every new console.", "info");
+        if (buddies.length === 0) {
+          const name = config.lastPokemon || randomPokemon();
+          await addBuddy(name, ctx, config.lastShiny);
+        }
+        return;
+      }
+
+      // /pokemon off — disable auto-start & dismiss all
+      if (arg === "off") {
+        config.autoStart = false;
+        saveConfig(config);
+        if (buddies.length > 0) removeAll(ctx);
+        ctx.ui.notify("🔴 Pokémon auto-start disabled.", "info");
+        return;
+      }
+
+      if (arg === "dismiss" || arg === "bye") { removeAll(ctx); return; }
       if (arg === "pop" || arg === "remove") { removeLast(ctx); return; }
 
       if (arg === "list") {
@@ -379,6 +444,10 @@ export default function pokemonBuddy(pi: ExtensionAPI) {
           removeLast(ctx);
         }
         await addBuddy(shinyName, ctx, true);
+        // Remember shiny choice
+        config.lastPokemon = shinyName;
+        config.lastShiny = true;
+        if (config.autoStart) saveConfig(config);
         return;
       }
 
@@ -393,6 +462,11 @@ export default function pokemonBuddy(pi: ExtensionAPI) {
         buddies = [];
       }
       await addBuddy(name, ctx);
+
+      // Remember choice for auto-start
+      config.lastPokemon = name;
+      config.lastShiny = undefined;
+      if (config.autoStart) saveConfig(config);
     },
   });
 
