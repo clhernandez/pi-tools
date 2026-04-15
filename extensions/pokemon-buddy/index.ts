@@ -30,8 +30,10 @@ const EXTENSION_DIR = dirname(fileURLToPath(import.meta.url));
 const SWIFT_SOURCE = join(EXTENSION_DIR, "PokemonOverlay.swift");
 const SWIFT_BINARY = join(EXTENSION_DIR, ".build", "PokemonOverlay");
 const SPRITES_DIR = join(EXTENSION_DIR, "sprites");
-const SLOTS_DIR = join(EXTENSION_DIR, ".slots");
-const CONFIG_FILE = join(EXTENSION_DIR, ".config.json");
+const POKEMON_DATA_DIR = join(homedir(), ".pokemon-buddy");
+const SLOTS_DIR = join(POKEMON_DATA_DIR, "slots");
+const CONFIG_FILE = join(POKEMON_DATA_DIR, "config.json");
+const LOCK_TIMEOUT_MS = 5000; // max wait for slot lock
 
 // ── Persistent config ───────────────────────────────────────────────
 
@@ -224,32 +226,75 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// ── Slot coordination ───────────────────────────────────────────────
+// ── Slot coordination (shared across all pi instances) ──────────────
 
 function isProcessAlive(pid: number): boolean {
   try { process.kill(pid, 0); return true; } catch { return false; }
 }
 
-function cleanStaleSlots() {
+function ensureSlotsDir() {
   mkdirSync(SLOTS_DIR, { recursive: true });
+}
+
+function cleanStaleSlots() {
+  ensureSlotsDir();
   for (const f of readdirSync(SLOTS_DIR)) {
     if (!f.endsWith(".pid")) continue;
+    const filePath = join(SLOTS_DIR, f);
     try {
-      const pid = parseInt(readFileSync(join(SLOTS_DIR, f), "utf8").trim());
-      if (!isProcessAlive(pid)) unlinkSync(join(SLOTS_DIR, f));
-    } catch { try { unlinkSync(join(SLOTS_DIR, f)); } catch {} }
+      const content = readFileSync(filePath, "utf8").trim();
+      const pid = parseInt(content);
+      if (isNaN(pid) || !isProcessAlive(pid)) {
+        unlinkSync(filePath);
+      }
+    } catch { try { unlinkSync(filePath); } catch {} }
   }
 }
 
+/** Atomic slot claim using exclusive file creation to prevent races */
 function claimSlot(pid: number): number {
+  ensureSlotsDir();
   cleanStaleSlots();
-  const taken = new Set(
-    readdirSync(SLOTS_DIR).filter((f) => f.endsWith(".pid")).map((f) => parseInt(f.replace(".pid", "")))
-  );
-  let slot = 0;
-  while (taken.has(slot)) slot++;
-  writeFileSync(join(SLOTS_DIR, `${slot}.pid`), String(pid));
-  return slot;
+
+  // Use a lock file to prevent two instances from racing
+  const lockFile = join(SLOTS_DIR, ".lock");
+  const startTime = Date.now();
+
+  // Spin-wait for lock (with timeout)
+  while (true) {
+    try {
+      // O_EXCL: fails if file already exists → atomic lock
+      const fd = require("fs").openSync(lockFile, "wx");
+      require("fs").closeSync(fd);
+      break;
+    } catch {
+      if (Date.now() - startTime > LOCK_TIMEOUT_MS) {
+        // Stale lock — force remove and retry
+        try { unlinkSync(lockFile); } catch {}
+        continue;
+      }
+      // Brief sleep via busy-wait (sync context, ~10ms)
+      const until = Date.now() + 10 + Math.random() * 20;
+      while (Date.now() < until) {}
+    }
+  }
+
+  try {
+    // Re-read after acquiring lock
+    cleanStaleSlots();
+    const taken = new Set(
+      readdirSync(SLOTS_DIR)
+        .filter((f) => f.endsWith(".pid"))
+        .map((f) => parseInt(f.replace(".pid", "")))
+        .filter((n) => !isNaN(n))
+    );
+    let slot = 0;
+    while (taken.has(slot)) slot++;
+    writeFileSync(join(SLOTS_DIR, `${slot}.pid`), String(pid));
+    return slot;
+  } finally {
+    try { unlinkSync(lockFile); } catch {}
+  }
 }
 
 function releaseSlot(slot: number) {

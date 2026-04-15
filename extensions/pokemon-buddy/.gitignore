@@ -3,9 +3,3 @@ sprites/
 
 # Compiled Swift binary
 .build/
-
-# Runtime PID slot files
-.slots/
-
-# Local user config (auto-start preference)
-.config.json
