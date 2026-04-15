@@ -419,6 +419,27 @@ export default function pokemonBuddy(pi: ExtensionAPI) {
         return;
       }
 
+      if (arg === "help" || arg === "?") {
+        ctx.ui.notify(
+          [
+            "🐾 /pokemon commands:",
+            "  /pokemon              → random buddy (5% shiny)",
+            "  /pokemon <name>       → specific pokémon",
+            "  /pokemon shiny [name] → force shiny",
+            "  /pokemon on           → auto-start on new consoles",
+            "  /pokemon off          → disable auto-start & dismiss",
+            "  /pokemon dismiss      → dismiss all (keeps setting)",
+            "  /pokemon pop          → remove last added",
+            "  /pokemon walk         → free roam mode",
+            "  /pokemon stay         → lineup mode",
+            "  /pokemon list         → show name suggestions",
+            "  /pokemon help         → this message",
+          ].join("\n"),
+          "info"
+        );
+        return;
+      }
+
       if (arg === "dismiss" || arg === "bye") { removeAll(ctx); return; }
       if (arg === "pop" || arg === "remove") { removeLast(ctx); return; }
 
