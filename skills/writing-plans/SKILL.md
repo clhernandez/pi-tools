@@ -103,6 +103,17 @@ git commit -m "feat: add specific feature"
 ```
 ````
 
+## Write in Parts — Never All at Once
+
+**Never write the entire plan in a single response.** Long responses cause connection timeouts and lose all work.
+
+**Required approach:**
+1. **Start:** Announce the skill, do scope check, define file structure — save to file immediately with a `# WIP` marker at the top
+2. **Per task:** Write one task at a time, append it to the file, confirm saved before continuing to the next
+3. **Finish:** Remove the `# WIP` marker, run self-review, save final version
+
+**Between each task, write the task directly to the file using a tool call (write/edit) — do not buffer tasks in memory.** If the connection drops mid-plan, the file will have whatever was written so far and work can resume.
+
 ## No Placeholders
 
 Every step must contain the actual content an engineer needs. These are **plan failures** — never write them:
