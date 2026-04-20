@@ -8,7 +8,7 @@ export interface ModelResponse {
 	error?: string;
 }
 
-function httpsPost(url: string, body: string, headers: Record<string, string>, timeoutMs: number): Promise<string> {
+function httpsPost(url: string, body: string, headers: Record<string, string>, timeoutSecs: number): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const parsed = new URL(url);
 		const req = https.request(
@@ -25,8 +25,8 @@ function httpsPost(url: string, body: string, headers: Record<string, string>, t
 				res.on("error", reject);
 			},
 		);
-		req.setTimeout(timeoutMs, () => {
-			req.destroy(new Error(`Request timed out after ${timeoutMs}ms`));
+		req.setTimeout(timeoutSecs, () => {
+			req.destroy(new Error(`Request timed out after ${timeoutSecs}s`));
 		});
 		req.on("error", reject);
 		req.write(body);
@@ -38,7 +38,7 @@ export async function queryModel(
 	model: string,
 	prompt: string,
 	apiKey: string,
-	timeoutMs: number,
+	timeoutSecs: number,
 ): Promise<ModelResponse> {
 	const body = JSON.stringify({
 		model,
@@ -50,7 +50,7 @@ export async function queryModel(
 			OPENROUTER_URL,
 			body,
 			{ Authorization: `Bearer ${apiKey}`, "HTTP-Referer": "https://github.com/pi-tools", "X-Title": "pi-council" },
-			timeoutMs * 1000,
+			timeoutSecs *  1000,
 		);
 
 		const json = JSON.parse(raw) as {
@@ -73,7 +73,7 @@ export async function queryModelsParallel(
 	models: string[],
 	prompt: string,
 	apiKey: string,
-	timeoutMs: number,
+	timeoutSecs: number,
 ): Promise<ModelResponse[]> {
-	return Promise.all(models.map((m) => queryModel(m, prompt, apiKey, timeoutMs)));
+	return Promise.all(models.map((m) => queryModel(m, prompt, apiKey, timeoutSecs)));
 }
