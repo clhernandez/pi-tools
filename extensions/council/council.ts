@@ -1,5 +1,5 @@
 import type { ReviewType, CouncilConfig } from "./config.js";
-import { queryModelsParallel, type ModelResponse } from "./openrouter.js";
+import { queryModelsParallel } from "./openrouter.js";
 import { buildStage1Prompt, buildStage2Prompt, buildStage3Prompt } from "./prompts.js";
 
 export interface Stage1Result {
@@ -149,7 +149,7 @@ export async function runCouncil(
 	}));
 	const stage3Prompt = buildStage3Prompt(content, reviewType, reviewsForChairman, rankingsForChairman);
 	const chairmanResponse = await queryModelsParallel([config.chairman], stage3Prompt, config.apiKey, config.timeout);
-	const chairmanContent = chairmanResponse[0]?.content ?? "Chairman model failed to produce a synthesis.";
+	const chairmanContent = chairmanResponse[0]?.content || "Chairman model failed to produce a synthesis.";
 
 	return {
 		stage1: stage1Results,

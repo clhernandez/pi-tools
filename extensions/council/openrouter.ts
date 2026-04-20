@@ -8,13 +8,13 @@ export interface ModelResponse {
 	error?: string;
 }
 
-function httpsPost(url: string, body: string, headers: Record<string, string>, timeoutSecs: number): Promise<string> {
+function httpsPost(url: string, body: string, headers: Record<string, string>, timeoutMs: number): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const parsed = new URL(url);
 		const req = https.request(
 			{
 				hostname: parsed.hostname,
-				path: parsed.pathname,
+				path: parsed.pathname + parsed.search,
 				method: "POST",
 				headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body), ...headers },
 			},
@@ -25,8 +25,8 @@ function httpsPost(url: string, body: string, headers: Record<string, string>, t
 				res.on("error", reject);
 			},
 		);
-		req.setTimeout(timeoutSecs, () => {
-			req.destroy(new Error(`Request timed out after ${timeoutSecs}s`));
+		req.setTimeout(timeoutMs, () => {
+			req.destroy(new Error(`Request timed out after ${timeoutMs / 1000}s`));
 		});
 		req.on("error", reject);
 		req.write(body);
@@ -50,7 +50,7 @@ export async function queryModel(
 			OPENROUTER_URL,
 			body,
 			{ Authorization: `Bearer ${apiKey}`, "HTTP-Referer": "https://github.com/pi-tools", "X-Title": "pi-council" },
-			timeoutSecs *  1000,
+			timeoutSecs * 1000,
 		);
 
 		const json = JSON.parse(raw) as {

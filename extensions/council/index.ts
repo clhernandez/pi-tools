@@ -132,8 +132,6 @@ export default function (pi: ExtensionAPI) {
 			const extraInstructions = (await ctx.ui.input("Additional instructions (Enter to skip):")) ?? "";
 
 			// Run the council
-			ctx.ui.setStatus(`🏛️ Council: Stage 1 — Models reviewing independently... (${config.models.length} models)`);
-
 			try {
 				const result = await runCouncil(
 					content,
