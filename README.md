@@ -66,6 +66,36 @@ These agents work alongside the built-in types from `@tintinweb/pi-subagents`:
 |-----------|-------------|
 | **image-label** | Detects dragged image paths, replaces with `[Image N]` labels |
 | **plan-mode** | Read-only exploration mode with plan step tracking |
+| **council** | Multi-model review council — sends a spec/plan/code file to multiple LLMs via OpenRouter, runs a 3-stage pipeline (independent review → anonymous peer ranking → chairman synthesis) |
+
+#### Council Setup
+
+Create `~/.pi/council.json` with your OpenRouter API key and the models you want on the council:
+
+```json
+{
+  "apiKey": "sk-or-...",
+  "models": [
+    "anthropic/claude-sonnet-4-5",
+    "openai/gpt-4o",
+    "google/gemini-2.5-pro"
+  ],
+  "chairman": "anthropic/claude-sonnet-4-5",
+  "timeout": 120
+}
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `apiKey` | Yes* | — | OpenRouter API key. Also accepts `OPENROUTER_API_KEY` env var |
+| `models` | Yes | — | At least 2 OpenRouter model identifiers |
+| `chairman` | No | First model | Model that synthesizes the final verdict |
+| `timeout` | No | 120 | Seconds per model request |
+
+**Commands:**
+
+- `/council` — Interactive: choose review type (Spec/Plan/Code), enter file path, optional instructions. Runs the full 3-stage pipeline and shows a compact synthesis + rankings.
+- `/council results` — Show full details of the last council run (all individual reviews, peer evaluations, chairman synthesis).
 
 ### Skills
 
