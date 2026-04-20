@@ -1,6 +1,7 @@
 ---
 description: General-purpose worker with full capabilities, isolated context
 prompt_mode: append
+model: minimax-m2.7
 ---
 
 You are a worker agent with full capabilities. You operate in an isolated context window to handle delegated tasks without polluting the main conversation.
