@@ -37,7 +37,7 @@ export interface CouncilResult {
 
 // Parse "FINAL RANKING:\n1. Review C\n2. Review A\n..." from model output
 function parseRanking(text: string, validLabels: string[]): string[] {
-	const section = text.split(/FINAL RANKING:/i)[1] ?? "";
+	const section = text.split(/FINAL RANKING:/i)[1] ?? text;
 
 	// Primary: numbered list "1. Review C"
 	const numbered = [...section.matchAll(/\d+\.\s*(Review\s+[A-Z])/gi)].map((m) => m[1].trim());
