@@ -42,13 +42,27 @@ const REVIEW_TYPE_LABELS: Record<ReviewType, string> = {
 function formatCompactResult(result: CouncilResult): string {
 	const lines: string[] = [];
 
+	// Stage 3: Chairman synthesis (main output)
 	lines.push("## 🏛️ Council Synthesis\n");
 	lines.push(result.stage3.synthesis);
 	lines.push("");
 
+	// If chairman failed, show the top-ranked review as fallback
+	const synthesisFailed = result.stage3.synthesis.startsWith("⚠️");
+	if (synthesisFailed && result.aggregateRankings.length > 0) {
+		const topModel = result.aggregateRankings[0].model;
+		const topReview = result.stage1.find((r) => r.model === topModel && !r.failed);
+		if (topReview) {
+			lines.push("---\n");
+			lines.push(`### 🥇 Top-ranked review (${topModel})\n`);
+			lines.push(topReview.content);
+			lines.push("");
+		}
+	}
+
 	if (result.aggregateRankings.length > 0) {
 		lines.push("---\n");
-		lines.push("📊 **Council Rankings** (peer-evaluated, lower avg = more useful review):\n");
+		lines.push("📊 **Peer Rankings** — which review was most useful (lower avg = better):\n");
 		result.aggregateRankings.forEach((r, i) => {
 			lines.push(`${i + 1}. \`${r.model}\` — avg rank: ${r.averageRank.toFixed(1)} (${r.voteCount} votes)`);
 		});
@@ -216,6 +230,13 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			lastResult = outcome.result;
+
+			// Notify if chairman failed so the user knows why
+			const synthesis = outcome.result.stage3.synthesis;
+			if (synthesis.startsWith("⚠️")) {
+				ctx.ui.notify(synthesis.replace(/\*\*/g, ""), "error");
+			}
+
 			pi.sendMessage(
 				{ customType: "council", content: formatCompactResult(outcome.result), display: true },
 				{ triggerTurn: false },
