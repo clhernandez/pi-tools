@@ -144,6 +144,7 @@ export default function (pi: ExtensionAPI) {
 						};
 						ctx.ui.setStatus(labels[stage] ?? "🏛️ Council running...");
 					},
+					(model) => ctx.modelRegistry.getApiKeyAndHeaders(model),
 				);
 
 				ctx.ui.setStatus("");

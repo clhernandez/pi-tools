@@ -2,6 +2,8 @@ import type { ReviewType, CouncilConfig } from "./config.js";
 import { queryModelsParallel } from "./openrouter.js";
 import { buildStage1Prompt, buildStage2Prompt, buildStage3Prompt } from "./prompts.js";
 
+type GetApiKeyAndHeaders = (model: object) => Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string>; error?: string }>;
+
 export interface Stage1Result {
 	model: string;
 	content: string;
@@ -85,11 +87,12 @@ export async function runCouncil(
 	extraInstructions: string,
 	config: CouncilConfig,
 	onStageStart: (stage: 1 | 2 | 3) => void,
+	getApiKeyAndHeaders: GetApiKeyAndHeaders,
 ): Promise<CouncilResult> {
 	// Stage 1
 	onStageStart(1);
 	const stage1Prompt = buildStage1Prompt(content, reviewType, extraInstructions);
-	const rawStage1 = await queryModelsParallel(config.models, stage1Prompt, config.apiKey, config.timeout);
+	const rawStage1 = await queryModelsParallel(config.models, stage1Prompt, "", config.timeout, getApiKeyAndHeaders);
 
 	const failedModels = rawStage1.filter((r) => r.error).map((r) => r.model);
 	const successfulStage1 = rawStage1.filter((r) => !r.error && r.content.trim().length > 0);
@@ -124,8 +127,9 @@ export async function runCouncil(
 	const rawStage2 = await queryModelsParallel(
 		successfulStage1.map((r) => r.model),
 		stage2Prompt,
-		config.apiKey,
+		"",
 		config.timeout,
+		getApiKeyAndHeaders,
 	);
 
 	const validLabels = Object.keys(labelToModel);
@@ -148,7 +152,13 @@ export async function runCouncil(
 		labelToModel,
 	}));
 	const stage3Prompt = buildStage3Prompt(content, reviewType, reviewsForChairman, rankingsForChairman);
-	const chairmanResponse = await queryModelsParallel([config.chairman], stage3Prompt, config.apiKey, config.timeout);
+	const chairmanResponse = await queryModelsParallel(
+		[config.chairman],
+		stage3Prompt,
+		"",
+		config.timeout,
+		getApiKeyAndHeaders,
+	);
 	const chairmanContent = chairmanResponse[0]?.content || "Chairman model failed to produce a synthesis.";
 
 	return {

@@ -1,6 +1,4 @@
-import * as https from "node:https";
-
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+import { complete, getModel } from "@mariozechner/pi-ai";
 
 export interface ModelResponse {
 	model: string;
@@ -8,64 +6,61 @@ export interface ModelResponse {
 	error?: string;
 }
 
-function httpsPost(url: string, body: string, headers: Record<string, string>, timeoutMs: number): Promise<string> {
-	return new Promise((resolve, reject) => {
-		const parsed = new URL(url);
-		const req = https.request(
-			{
-				hostname: parsed.hostname,
-				path: parsed.pathname + parsed.search,
-				method: "POST",
-				headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body), ...headers },
-			},
-			(res) => {
-				const chunks: Buffer[] = [];
-				res.on("data", (chunk: Buffer) => chunks.push(chunk));
-				res.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-				res.on("error", reject);
-			},
-		);
-		req.setTimeout(timeoutMs, () => {
-			req.destroy(new Error(`Request timed out after ${timeoutMs / 1000}s`));
-		});
-		req.on("error", reject);
-		req.write(body);
-		req.end();
-	});
-}
-
 export async function queryModel(
-	model: string,
+	modelId: string,
 	prompt: string,
-	apiKey: string,
+	_apiKey: string,
 	timeoutSecs: number,
+	getApiKeyAndHeaders: (model: object) => Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string>; error?: string }>,
 ): Promise<ModelResponse> {
-	const body = JSON.stringify({
-		model,
-		messages: [{ role: "user", content: prompt }],
-	});
+	const [provider, ...rest] = modelId.split("/");
+	const id = rest.join("/");
+
+	const model = getModel(provider, id);
+	if (!model) {
+		return { model: modelId, content: "", error: `Model not found in pi registry: ${modelId}` };
+	}
+
+	const auth = await getApiKeyAndHeaders(model);
+	if (!auth.ok) {
+		return { model: modelId, content: "", error: auth.error ?? "Auth failed" };
+	}
+	if (!auth.apiKey) {
+		return { model: modelId, content: "", error: `No API key configured for ${provider}` };
+	}
+
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutSecs * 1000);
 
 	try {
-		const raw = await httpsPost(
-			OPENROUTER_URL,
-			body,
-			{ Authorization: `Bearer ${apiKey}`, "HTTP-Referer": "https://github.com/pi-tools", "X-Title": "pi-council" },
-			timeoutSecs * 1000,
+		const response = await complete(
+			model,
+			{
+				messages: [
+					{
+						role: "user",
+						content: [{ type: "text", text: prompt }],
+						timestamp: Date.now(),
+					},
+				],
+			},
+			{
+				apiKey: auth.apiKey,
+				headers: auth.headers,
+				signal: controller.signal,
+			},
 		);
 
-		const json = JSON.parse(raw) as {
-			choices?: Array<{ message?: { content?: string } }>;
-			error?: { message?: string };
-		};
+		const content = response.content
+			.filter((c): c is { type: "text"; text: string } => c.type === "text")
+			.map((c) => c.text)
+			.join("");
 
-		if (json.error) {
-			return { model, content: "", error: json.error.message ?? "Unknown API error" };
-		}
-
-		const content = json.choices?.[0]?.message?.content ?? "";
-		return { model, content };
+		return { model: modelId, content };
 	} catch (err) {
-		return { model, content: "", error: err instanceof Error ? err.message : String(err) };
+		return { model: modelId, content: "", error: err instanceof Error ? err.message : String(err) };
+	} finally {
+		clearTimeout(timer);
 	}
 }
 
@@ -74,6 +69,7 @@ export async function queryModelsParallel(
 	prompt: string,
 	apiKey: string,
 	timeoutSecs: number,
+	getApiKeyAndHeaders: (model: object) => Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string>; error?: string }>,
 ): Promise<ModelResponse[]> {
-	return Promise.all(models.map((m) => queryModel(m, prompt, apiKey, timeoutSecs)));
+	return Promise.all(models.map((m) => queryModel(m, prompt, apiKey, timeoutSecs, getApiKeyAndHeaders)));
 }
