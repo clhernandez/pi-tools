@@ -75,7 +75,10 @@ export async function queryModelsParallel(
 		models.map(async (m) => {
 			onProgress?.({ type: "start", model: m });
 			const r = await queryModel(m, prompt, timeoutSecs, getApiKeyAndHeaders, signal);
-			onProgress?.({ type: "done", model: m, ok: !r.error, error: r.error });
+			const hasContent = r.content.trim().length > 0;
+			const ok = !r.error && hasContent;
+			const error = r.error ?? (hasContent ? undefined : "Empty response");
+			onProgress?.({ type: "done", model: m, ok, error });
 			return r;
 		}),
 	);

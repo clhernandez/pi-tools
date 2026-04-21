@@ -177,7 +177,12 @@ export async function runCouncil(
 		(e) => onProgress?.(3, e),
 		signal,
 	);
-	const chairmanContent = chairmanResponse[0]?.content || "Chairman model failed to produce a synthesis.";
+	const chairmanRaw = chairmanResponse[0];
+	const chairmanContent = chairmanRaw?.content?.trim()
+		? chairmanRaw.content
+		: `⚠️ Chairman model (${config.chairman}) failed to produce a synthesis.${
+				chairmanRaw?.error ? `\n\n**Error:** \`${chairmanRaw.error}\`` : ""
+			}`;
 
 	return {
 		stage1: stage1Results,
