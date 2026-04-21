@@ -315,6 +315,11 @@ class PokemonOverlayWindow: NSWindow {
     }
 
     func acceptsFirstMouse(for event: NSEvent?) -> Bool { return true }
+
+    // Allow positioning anywhere on screen, including above the menu bar
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        return frameRect
+    }
 }
 
 // MARK: - App Controller
