@@ -18,7 +18,7 @@
  *   /pokemon list        — show suggestions
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, BeforeAgentStartEvent } from "@mariozechner/pi-coding-agent";
 import { spawn, type ChildProcess, execSync } from "node:child_process";
 import { existsSync, statSync, mkdirSync, readdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
@@ -320,7 +320,8 @@ export default function pokemonBuddy(pi: ExtensionAPI) {
   let mode: "static" | "walk" = "static";
   let building = false;
   let waitingForAnswer = false;
-  let working = false;
+  let activeAgentCount = 0;
+  let lastPrompt = "";
   const config = loadConfig();
 
   function sendAll(type: string, value?: string) {
@@ -527,26 +528,38 @@ export default function pokemonBuddy(pi: ExtensionAPI) {
 
   // ── Event reactions ─────────────────────────────────────────────
 
-  pi.on("agent_end", async () => {
+  pi.on("before_agent_start", async (event) => {
     if (buddies.length === 0) return;
-    working = false;
-    if (!waitingForAnswer) {
-      sendAll("mood", "happy");
-      sendAll("message", "Done! ✓");
-    }
+    let prompt = event.prompt.trim().replace(/\n/g, " ");
+    if (prompt.length > 80) prompt = prompt.slice(0, 80) + "…";
+    lastPrompt = prompt;
+    sendAll("lastPrompt", lastPrompt);
   });
 
   pi.on("agent_start", async () => {
     if (buddies.length === 0) return;
+    activeAgentCount++;
     waitingForAnswer = false;
-    working = true;
-    sendAll("mood", "working");
-    sendAll("message", "");
+    if (activeAgentCount === 1) {
+      sendAll("mood", "working");
+      sendAll("message", "");
+    }
+  });
+
+  pi.on("agent_end", async () => {
+    if (buddies.length === 0) return;
+    activeAgentCount = Math.max(0, activeAgentCount - 1);
+    if (activeAgentCount === 0) {
+      if (!waitingForAnswer) {
+        sendAll("mood", "happy");
+        sendAll("message", "Done! ✓");
+      }
+    }
   });
 
   pi.on("turn_start", async () => {
     if (buddies.length === 0) return;
-    if (!waitingForAnswer && working) {
+    if (!waitingForAnswer && activeAgentCount > 0) {
       sendAll("mood", "working");
     }
   });

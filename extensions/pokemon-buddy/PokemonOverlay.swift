@@ -163,6 +163,14 @@ class PokemonView: NSView {
     var moodEmoji: String = ""
     var moodEmojiOpacity: CGFloat = 0
 
+    var onDragMoved: ((NSPoint) -> Void)?
+    var onDragEnded: ((NSPoint) -> Void)?
+    var onSingleClick: (() -> Void)?
+
+    private var mouseDownTime: Date?
+    private var mouseDownLocation: NSPoint?
+    private var isDragging: Bool = false
+
     let scale: CGFloat = 2.0
 
     override var isFlipped: Bool { false }
@@ -248,6 +256,44 @@ class PokemonView: NSView {
 
         str.draw(at: NSPoint(x: bubbleX + padding, y: bubbleY + padding * 0.3))
     }
+
+    override func mouseDown(with event: NSEvent) {
+        mouseDownTime = Date()
+        mouseDownLocation = event.locationInWindow
+        isDragging = false
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let startLoc = mouseDownLocation else { return }
+        let currentLoc = event.locationInWindow
+        let dx = currentLoc.x - startLoc.x
+        let dy = currentLoc.y - startLoc.y
+        let distance = sqrt(dx*dx + dy*dy)
+        if distance > 5 {
+            isDragging = true
+            let winOrigin = window?.frame.origin ?? .zero
+            let newOrigin = NSPoint(
+                x: winOrigin.x + dx,
+                y: winOrigin.y + dy
+            )
+            onDragMoved?(newOrigin)
+            mouseDownLocation = currentLoc
+        }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard let downTime = mouseDownTime else { return }
+        let elapsed = Date().timeIntervalSince(downTime)
+        if isDragging {
+            let winOrigin = window?.frame.origin ?? .zero
+            onDragEnded?(winOrigin)
+        } else if elapsed < 0.3 {
+            onSingleClick?()
+        }
+        mouseDownTime = nil
+        mouseDownLocation = nil
+        isDragging = false
+    }
 }
 
 // MARK: - Window
@@ -264,9 +310,11 @@ class PokemonOverlayWindow: NSWindow {
         self.backgroundColor = .clear
         self.level = .floating
         self.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-        self.ignoresMouseEvents = true
+        self.ignoresMouseEvents = false
         self.hasShadow = false
     }
+
+    func acceptsFirstMouse(for event: NSEvent?) -> Bool { return true }
 }
 
 // MARK: - App Controller
@@ -285,6 +333,8 @@ class AppController {
     var mode: String = "static"
     var staticX: CGFloat = 0
     var spriteManager: SpriteManager
+    var lastPrompt: String = ""
+    var isDragging: Bool = false
 
     init(spriteDir: String, initialMode: String, staticXPos: CGFloat) {
         self.spriteManager = SpriteManager(spriteDir: spriteDir)
@@ -312,6 +362,28 @@ class AppController {
         self.pokemonView.direction = initialMode == "static" ? 1 : direction
         self.pokemonView.frame = NSRect(origin: .zero, size: winSize)
         self.window.contentView = pokemonView
+        pokemonView.onSingleClick = { [weak self] in
+            guard let self = self else { return }
+            let text = self.lastPrompt.isEmpty ? "No prompt yet" : self.lastPrompt
+            self.showMessage(text, duration: 4.0)
+        }
+
+        pokemonView.onDragMoved = { [weak self] newOrigin in
+            guard let self = self else { return }
+            self.isDragging = true
+            self.posX = newOrigin.x
+            self.window.setFrameOrigin(newOrigin)
+        }
+
+        pokemonView.onDragEnded = { [weak self] finalOrigin in
+            guard let self = self else { return }
+            self.isDragging = false
+            self.posX = finalOrigin.x
+            self.staticX = finalOrigin.x
+            self.mode = "static"
+            self.window.setFrameOrigin(finalOrigin)
+        }
+
         self.window.orderFrontRegardless()
 
         startAnimation()
@@ -348,6 +420,7 @@ class AppController {
     func startWalking() {
         walkTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
+            if self.isDragging { return }
 
             if self.mode == "static" {
                 let dx = self.staticX - self.posX
@@ -464,6 +537,8 @@ class AppController {
             pokemonView.frameIndex = 0
         case "position":
             if let x = Double(cmd.value ?? "") { staticX = CGFloat(x) }
+        case "lastPrompt":
+            lastPrompt = cmd.value ?? ""
         case "quit":
             NSApp.terminate(nil)
         default:
