@@ -113,9 +113,9 @@ export default function (pi: ExtensionAPI) {
 				ctx.ui.notify("No council results available. Run /council first.", "warning");
 				return;
 			}
-			await pi.sendMessage(
+			pi.sendMessage(
 				{ customType: "council", content: formatFullResult(lastResult), display: true },
-				{ deliverAs: "followUp" },
+				{ triggerTurn: false },
 			);
 		},
 	});
@@ -216,9 +216,9 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			lastResult = outcome.result;
-			await pi.sendMessage(
+			pi.sendMessage(
 				{ customType: "council", content: formatCompactResult(outcome.result), display: true },
-				{ deliverAs: "followUp" },
+				{ triggerTurn: false },
 			);
 		},
 	});
