@@ -104,13 +104,11 @@ export default function (pi: ExtensionAPI) {
 			const config = configResult.config;
 
 			// Step 1: Review type
-			const reviewTypeChoice = await ctx.ui.select("What do you want to review?", [
-				{ label: "Spec", value: "spec" },
-				{ label: "Plan", value: "plan" },
-				{ label: "Code", value: "code" },
-			]);
+			const reviewTypeLabels = ["Spec", "Plan", "Code"] as const;
+			const reviewTypeValues: ReviewType[] = ["spec", "plan", "code"];
+			const reviewTypeChoice = await ctx.ui.select("What do you want to review?", [...reviewTypeLabels]);
 			if (!reviewTypeChoice) return;
-			const reviewType = reviewTypeChoice as ReviewType;
+			const reviewType = reviewTypeValues[reviewTypeLabels.indexOf(reviewTypeChoice as (typeof reviewTypeLabels)[number])];
 
 			// Step 2: File path
 			const filePath = await ctx.ui.input(`Path to the ${REVIEW_TYPE_LABELS[reviewType]} file:`);
