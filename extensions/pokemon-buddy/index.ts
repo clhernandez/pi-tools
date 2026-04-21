@@ -416,26 +416,24 @@ export default function pokemonBuddy(pi: ExtensionAPI) {
     ctx.ui.notify(`All ${count} Pokémon returned! 👋`, "info");
   }
 
-  // ── Command ──────────────────────────────────────────────────────
+  // ── Auto-start on new console (only in interactive mode) ──────────
 
-  // ── Auto-start on new console ─────────────────────────────────
-
-  async function autoStartBuddy() {
+  pi.on("session_start", async (_event, ctx) => {
+    // ctx.hasUI is false in RPC/subagent mode — skip auto-start there
+    if (!ctx.hasUI) return;
     if (!config.autoStart) return;
     // Small delay to let the TUI initialize
     await new Promise((r) => setTimeout(r, 800));
     const name = randomPokemon();
     const fakeCtx = {
       ui: {
-        notify: (msg: string, _level: string) => {
+        notify: (_msg: string, _level: string) => {
           // silent auto-start — no notifications on spawn
         },
       },
     };
     await addBuddy(name, fakeCtx);
-  }
-
-  autoStartBuddy();
+  });
 
   pi.registerCommand("pokemon", {
     description: "Pokémon buddy! /pokemon [name|shiny|on|off|dismiss|walk|stay|pop|list]",
