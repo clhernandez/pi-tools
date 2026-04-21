@@ -327,6 +327,7 @@ class AppController {
     var moodTimer: Timer?
     var messageTimer: Timer?
     var posX: CGFloat
+    var posY: CGFloat = 0
     var direction: CGFloat
     var speed: CGFloat
     var baseY: CGFloat = 0
@@ -355,6 +356,7 @@ class AppController {
             startX = CGFloat.random(in: 50...(screen.frame.width - winSize.width - 50))
         }
         self.posX = startX
+        self.posY = self.baseY
 
         self.window = PokemonOverlayWindow(size: winSize, origin: NSPoint(x: startX, y: baseY))
         self.pokemonView = PokemonView()
@@ -372,6 +374,7 @@ class AppController {
             guard let self = self else { return }
             self.isDragging = true
             self.posX = newOrigin.x
+            self.posY = newOrigin.y
             self.window.setFrameOrigin(newOrigin)
         }
 
@@ -379,6 +382,7 @@ class AppController {
             guard let self = self else { return }
             self.isDragging = false
             self.posX = finalOrigin.x
+            self.posY = finalOrigin.y
             self.staticX = finalOrigin.x
             self.mode = "static"
             self.window.setFrameOrigin(finalOrigin)
@@ -432,7 +436,7 @@ class AppController {
                     self.posX = self.staticX
                     self.pokemonView.direction = 1
                 }
-                self.window.setFrameOrigin(NSPoint(x: self.posX, y: self.baseY))
+                self.window.setFrameOrigin(NSPoint(x: self.posX, y: self.posY))
                 return
             }
 
@@ -442,7 +446,7 @@ class AppController {
             if self.posX > maxX { self.direction = -1; self.pokemonView.direction = -1 }
             if self.posX < 0 { self.direction = 1; self.pokemonView.direction = 1 }
             self.pokemonView.needsDisplay = true
-            self.window.setFrameOrigin(NSPoint(x: self.posX, y: self.baseY))
+            self.window.setFrameOrigin(NSPoint(x: self.posX, y: self.posY))
         }
     }
 
