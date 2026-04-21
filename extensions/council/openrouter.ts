@@ -6,12 +6,20 @@ export interface ModelResponse {
 	error?: string;
 }
 
+export type ProgressEvent =
+	| { type: "start"; model: string }
+	| { type: "done"; model: string; ok: boolean; error?: string };
+
+export type GetApiKeyAndHeaders = (
+	model: object,
+) => Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string>; error?: string }>;
+
 export async function queryModel(
 	modelId: string,
 	prompt: string,
-	_apiKey: string,
 	timeoutSecs: number,
-	getApiKeyAndHeaders: (model: object) => Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string>; error?: string }>,
+	getApiKeyAndHeaders: GetApiKeyAndHeaders,
+	signal?: AbortSignal,
 ): Promise<ModelResponse> {
 	const [provider, ...rest] = modelId.split("/");
 	const id = rest.join("/");
@@ -22,33 +30,23 @@ export async function queryModel(
 	}
 
 	const auth = await getApiKeyAndHeaders(model);
-	if (!auth.ok) {
-		return { model: modelId, content: "", error: auth.error ?? "Auth failed" };
-	}
-	if (!auth.apiKey) {
-		return { model: modelId, content: "", error: `No API key configured for ${provider}` };
-	}
+	if (!auth.ok) return { model: modelId, content: "", error: auth.error ?? "Auth failed" };
+	if (!auth.apiKey) return { model: modelId, content: "", error: `No API key configured for ${provider}` };
 
 	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), timeoutSecs * 1000);
+	const timer = setTimeout(() => controller.abort(new Error(`Timed out after ${timeoutSecs}s`)), timeoutSecs * 1000);
+	const onParentAbort = () => controller.abort();
+	signal?.addEventListener("abort", onParentAbort, { once: true });
 
 	try {
 		const response = await complete(
 			model,
 			{
 				messages: [
-					{
-						role: "user",
-						content: [{ type: "text", text: prompt }],
-						timestamp: Date.now(),
-					},
+					{ role: "user", content: [{ type: "text", text: prompt }], timestamp: Date.now() },
 				],
 			},
-			{
-				apiKey: auth.apiKey,
-				headers: auth.headers,
-				signal: controller.signal,
-			},
+			{ apiKey: auth.apiKey, headers: auth.headers, signal: controller.signal },
 		);
 
 		const content = response.content
@@ -61,15 +59,24 @@ export async function queryModel(
 		return { model: modelId, content: "", error: err instanceof Error ? err.message : String(err) };
 	} finally {
 		clearTimeout(timer);
+		signal?.removeEventListener("abort", onParentAbort);
 	}
 }
 
 export async function queryModelsParallel(
 	models: string[],
 	prompt: string,
-	apiKey: string,
 	timeoutSecs: number,
-	getApiKeyAndHeaders: (model: object) => Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string>; error?: string }>,
+	getApiKeyAndHeaders: GetApiKeyAndHeaders,
+	onProgress?: (event: ProgressEvent) => void,
+	signal?: AbortSignal,
 ): Promise<ModelResponse[]> {
-	return Promise.all(models.map((m) => queryModel(m, prompt, apiKey, timeoutSecs, getApiKeyAndHeaders)));
+	return Promise.all(
+		models.map(async (m) => {
+			onProgress?.({ type: "start", model: m });
+			const r = await queryModel(m, prompt, timeoutSecs, getApiKeyAndHeaders, signal);
+			onProgress?.({ type: "done", model: m, ok: !r.error, error: r.error });
+			return r;
+		}),
+	);
 }

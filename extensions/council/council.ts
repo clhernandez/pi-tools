@@ -1,8 +1,8 @@
 import type { ReviewType, CouncilConfig } from "./config.js";
-import { queryModelsParallel } from "./openrouter.js";
+import { queryModelsParallel, type GetApiKeyAndHeaders, type ProgressEvent } from "./openrouter.js";
 import { buildStage1Prompt, buildStage2Prompt, buildStage3Prompt } from "./prompts.js";
 
-type GetApiKeyAndHeaders = (model: object) => Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string>; error?: string }>;
+export type { ProgressEvent } from "./openrouter.js";
 
 export interface Stage1Result {
 	model: string;
@@ -81,18 +81,33 @@ function computeAggregateRankings(
 		.sort((a, b) => a.averageRank - b.averageRank);
 }
 
+export interface RunCouncilHooks {
+	onStageStart: (stage: 1 | 2 | 3, models: string[]) => void;
+	onProgress?: (stage: 1 | 2 | 3, event: ProgressEvent) => void;
+	getApiKeyAndHeaders: GetApiKeyAndHeaders;
+	signal?: AbortSignal;
+}
+
 export async function runCouncil(
 	content: string,
 	reviewType: ReviewType,
 	extraInstructions: string,
 	config: CouncilConfig,
-	onStageStart: (stage: 1 | 2 | 3) => void,
-	getApiKeyAndHeaders: GetApiKeyAndHeaders,
+	hooks: RunCouncilHooks,
 ): Promise<CouncilResult> {
+	const { onStageStart, onProgress, getApiKeyAndHeaders, signal } = hooks;
+
 	// Stage 1
-	onStageStart(1);
+	onStageStart(1, config.models);
 	const stage1Prompt = buildStage1Prompt(content, reviewType, extraInstructions);
-	const rawStage1 = await queryModelsParallel(config.models, stage1Prompt, "", config.timeout, getApiKeyAndHeaders);
+	const rawStage1 = await queryModelsParallel(
+		config.models,
+		stage1Prompt,
+		config.timeout,
+		getApiKeyAndHeaders,
+		(e) => onProgress?.(1, e),
+		signal,
+	);
 
 	const failedModels = rawStage1.filter((r) => r.error).map((r) => r.model);
 	const successfulStage1 = rawStage1.filter((r) => !r.error && r.content.trim().length > 0);
@@ -118,18 +133,20 @@ export async function runCouncil(
 	}));
 
 	// Stage 2
-	onStageStart(2);
+	const stage2Models = successfulStage1.map((r) => r.model);
+	onStageStart(2, stage2Models);
 	const anonymizedReviews = successfulStage1.map((r) => ({
 		label: modelToLabel[r.model],
 		content: r.content,
 	}));
 	const stage2Prompt = buildStage2Prompt(anonymizedReviews, reviewType);
 	const rawStage2 = await queryModelsParallel(
-		successfulStage1.map((r) => r.model),
+		stage2Models,
 		stage2Prompt,
-		"",
 		config.timeout,
 		getApiKeyAndHeaders,
+		(e) => onProgress?.(2, e),
+		signal,
 	);
 
 	const validLabels = Object.keys(labelToModel);
@@ -144,7 +161,7 @@ export async function runCouncil(
 	const aggregateRankings = computeAggregateRankings(stage2Results, labelToModel);
 
 	// Stage 3
-	onStageStart(3);
+	onStageStart(3, [config.chairman]);
 	const reviewsForChairman = successfulStage1.map((r) => ({ model: r.model, content: r.content }));
 	const rankingsForChairman = stage2Results.map((r) => ({
 		model: r.reviewerModel,
@@ -155,9 +172,10 @@ export async function runCouncil(
 	const chairmanResponse = await queryModelsParallel(
 		[config.chairman],
 		stage3Prompt,
-		"",
 		config.timeout,
 		getApiKeyAndHeaders,
+		(e) => onProgress?.(3, e),
+		signal,
 	);
 	const chairmanContent = chairmanResponse[0]?.content || "Chairman model failed to produce a synthesis.";
 

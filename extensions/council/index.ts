@@ -1,8 +1,34 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { BorderedLoader, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { loadConfig, type ReviewType } from "./config.js";
-import { runCouncil, type CouncilResult } from "./council.js";
+import { runCouncil, type CouncilResult, type ProgressEvent } from "./council.js";
+
+type ModelState = "pending" | "running" | "done" | "failed";
+
+const STAGE_LABELS: Record<1 | 2 | 3, string> = {
+	1: "Stage 1/3 — Independent review",
+	2: "Stage 2/3 — Peer evaluation",
+	3: "Stage 3/3 — Chairman synthesis",
+};
+
+function renderProgressWidget(
+	stage: 1 | 2 | 3,
+	states: Map<string, ModelState>,
+	errors: Map<string, string>,
+): string[] {
+	const icon: Record<ModelState, string> = { pending: "○", running: "◐", done: "✓", failed: "✗" };
+	const done = [...states.values()].filter((s) => s === "done" || s === "failed").length;
+	const total = states.size;
+	const lines: string[] = [];
+	lines.push(`🏛️  Council — ${STAGE_LABELS[stage]} (${done}/${total})`);
+	for (const [model, state] of states) {
+		const err = errors.get(model);
+		const suffix = state === "failed" && err ? ` — ${err.slice(0, 60)}` : "";
+		lines.push(`  ${icon[state]} ${model}${suffix}`);
+	}
+	return lines;
+}
 
 // In-memory store for the last council result (for /council results)
 let lastResult: CouncilResult | null = null;
@@ -134,36 +160,66 @@ export default function (pi: ExtensionAPI) {
 			if (extraInstructionsInput === null) return;
 			const extraInstructions = extraInstructionsInput ?? "";
 
-			// Run the council
-			ctx.ui.notify(`🏛️ Starting council with ${config.models.length} models...`, "info");
-			try {
-				const result = await runCouncil(
-					content,
-					reviewType,
-					extraInstructions,
-					config,
-					(stage) => {
-						const labels: Record<number, string> = {
-							1: `🏛️ Council: Stage 1 — Models reviewing independently... (${config.models.length} models)`,
-							2: "🏛️ Council: Stage 2 — Peer evaluation in progress...",
-							3: "🏛️ Council: Stage 3 — Chairman synthesizing...",
-						};
-						ctx.ui.setStatus(labels[stage] ?? "🏛️ Council running...");
-					},
-					(model) => ctx.modelRegistry.getApiKeyAndHeaders(model),
-				);
+			// Run the council inside a cancellable loader + live progress widget
+			const WIDGET_ID = "council-progress";
+			let currentStage: 1 | 2 | 3 = 1;
+			const states = new Map<string, ModelState>();
+			const errors = new Map<string, string>();
 
-				ctx.ui.setStatus("");
-				lastResult = result;
+			const paint = () => ctx.ui.setWidget(WIDGET_ID, renderProgressWidget(currentStage, states, errors), { placement: "aboveEditor" });
 
-				await pi.sendMessage(
-					{ customType: "council", content: formatCompactResult(result), display: true },
-					{ deliverAs: "followUp" },
-				);
-			} catch (err) {
-				ctx.ui.setStatus("");
-				ctx.ui.notify(err instanceof Error ? err.message : String(err), "error");
+			const handleStageStart = (stage: 1 | 2 | 3, models: string[]) => {
+				currentStage = stage;
+				states.clear();
+				errors.clear();
+				for (const m of models) states.set(m, "pending");
+				paint();
+			};
+
+			const handleProgress = (_stage: 1 | 2 | 3, ev: ProgressEvent) => {
+				if (ev.type === "start") {
+					states.set(ev.model, "running");
+				} else {
+					states.set(ev.model, ev.ok ? "done" : "failed");
+					if (!ev.ok && ev.error) errors.set(ev.model, ev.error);
+				}
+				paint();
+			};
+
+			type RunOutcome = { ok: true; result: CouncilResult } | { ok: false; cancelled: true } | { ok: false; error: string };
+
+			const outcome = await ctx.ui.custom<RunOutcome>((tui, theme, _kb, done) => {
+				const loader = new BorderedLoader(tui, theme, `🏛️ Council starting — ${STAGE_LABELS[1]}...`);
+				loader.onAbort = () => done({ ok: false, cancelled: true });
+
+				runCouncil(content, reviewType, extraInstructions, config, {
+					onStageStart: handleStageStart,
+					onProgress: handleProgress,
+					getApiKeyAndHeaders: (model) => ctx.modelRegistry.getApiKeyAndHeaders(model),
+					signal: loader.signal,
+				})
+					.then((result) => done({ ok: true, result }))
+					.catch((err) => done({ ok: false, error: err instanceof Error ? err.message : String(err) }));
+
+				return loader;
+			});
+
+			ctx.ui.setWidget(WIDGET_ID, undefined);
+
+			if (!outcome.ok) {
+				if ("cancelled" in outcome) {
+					ctx.ui.notify("Council cancelled.", "info");
+				} else {
+					ctx.ui.notify(outcome.error, "error");
+				}
+				return;
 			}
+
+			lastResult = outcome.result;
+			await pi.sendMessage(
+				{ customType: "council", content: formatCompactResult(outcome.result), display: true },
+				{ deliverAs: "followUp" },
+			);
 		},
 	});
 }
