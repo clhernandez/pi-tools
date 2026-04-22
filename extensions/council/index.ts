@@ -62,9 +62,24 @@ function formatCompactResult(result: CouncilResult): string {
 
 	if (result.aggregateRankings.length > 0) {
 		lines.push("---\n");
-		lines.push("📊 **Peer Rankings** — which review was most useful (lower avg = better):\n");
+		const medals = ["🥇", "🥈", "🥉"];
+		const total = result.aggregateRankings.length;
+		lines.push("📊 **Peer Rankings** — council members voted on which review was most useful:\n");
 		result.aggregateRankings.forEach((r, i) => {
-			lines.push(`${i + 1}. \`${r.model}\` — avg rank: ${r.averageRank.toFixed(1)} (${r.voteCount} votes)`);
+			const medal = medals[i] ?? `${i + 1}.`;
+			// One line per reviewer: who ranked this model where
+			const votes = result.stage2
+				.map((s2) => {
+					const pos = s2.ranking.indexOf(result.modelToLabel[r.model]);
+					if (pos === -1) return null;
+					const place = pos === 0 ? "best" : pos === total - 1 ? "worst" : `#${pos + 1}`;
+					const reviewer = result.modelToLabel[s2.reviewerModel] ?? s2.reviewerModel;
+					return `${reviewer} → ${place}`;
+				})
+				.filter(Boolean)
+				.join("  |  ");
+			lines.push(`${medal} \`${r.model}\``);
+			if (votes) lines.push(`   ${votes}`);
 		});
 	}
 
