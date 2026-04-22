@@ -169,8 +169,8 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 
-			// Step 3: Extra instructions (null = cancelled, "" = skipped)
-			const extraInstructionsInput = await ctx.ui.input("Additional instructions (Enter to skip):");
+			// Step 3: Extra instructions — multiline editor (Esc = skip, Ctrl+D = cancel)
+			const extraInstructionsInput = await ctx.ui.editor("Additional instructions (Esc to skip):");
 			if (extraInstructionsInput === null) return;
 			const extraInstructions = extraInstructionsInput ?? "";
 
