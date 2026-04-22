@@ -3,6 +3,7 @@ import { complete, getModel } from "@mariozechner/pi-ai";
 export interface ModelResponse {
 	model: string;
 	content: string;
+	cost: number; // USD
 	error?: string;
 }
 
@@ -57,12 +58,12 @@ async function queryModelOnce(
 
 	const model = getModel(provider, id);
 	if (!model) {
-		return { model: modelId, content: "", error: `Model not found in pi registry: ${modelId}` };
+		return { model: modelId, content: "", cost: 0, error: `Model not found in pi registry: ${modelId}` };
 	}
 
 	const auth = await getApiKeyAndHeaders(model);
-	if (!auth.ok) return { model: modelId, content: "", error: auth.error ?? "Auth failed" };
-	if (!auth.apiKey) return { model: modelId, content: "", error: `No API key configured for ${provider}` };
+	if (!auth.ok) return { model: modelId, content: "", cost: 0, error: auth.error ?? "Auth failed" };
+	if (!auth.apiKey) return { model: modelId, content: "", cost: 0, error: `No API key configured for ${provider}` };
 
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(new Error(`Timed out after ${timeoutSecs}s`)), timeoutSecs * 1000);
@@ -94,12 +95,12 @@ async function queryModelOnce(
 
 		if (!content && response.stopReason) {
 			const detail = (response as any).errorMessage ? ` - ${(response as any).errorMessage}` : "";
-			return { model: modelId, content: "", error: `Empty response. Stop reason: ${response.stopReason}${detail}` };
+			return { model: modelId, content: "", cost: response.usage.cost.total, error: `Empty response. Stop reason: ${response.stopReason}${detail}` };
 		}
 
-		return { model: modelId, content };
+		return { model: modelId, content, cost: response.usage.cost.total };
 	} catch (err) {
-		return { model: modelId, content: "", error: err instanceof Error ? err.message : String(err) };
+		return { model: modelId, content: "", cost: 0, error: err instanceof Error ? err.message : String(err) };
 	} finally {
 		clearTimeout(timer);
 		signal?.removeEventListener("abort", onParentAbort);
@@ -117,7 +118,7 @@ export async function queryModel(
 
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
 		if (signal?.aborted) {
-			return lastResult ?? { model: modelId, content: "", error: "Aborted" };
+			return lastResult ?? { model: modelId, content: "", cost: 0, error: "Aborted" };
 		}
 
 		const result = await queryModelOnce(modelId, prompt, timeoutSecs, getApiKeyAndHeaders, signal);

@@ -35,6 +35,7 @@ export interface CouncilResult {
 	labelToModel: Record<string, string>;
 	modelToLabel: Record<string, string>;
 	failedModels: string[];
+	totalCost: number; // USD
 }
 
 // Parse "FINAL RANKING:\n1. Review C\n2. Review A\n..." from model output
@@ -188,6 +189,11 @@ export async function runCouncil(
 				chairmanRaw?.error ? `\n\n**Error:** \`${chairmanRaw.error}\`` : ""
 			}`;
 
+	const totalCost =
+		rawStage1.reduce((sum, r) => sum + r.cost, 0) +
+		rawStage2.reduce((sum, r) => sum + r.cost, 0) +
+		(chairmanRaw?.cost ?? 0);
+
 	return {
 		stage1: stage1Results,
 		stage2: stage2Results,
@@ -196,5 +202,6 @@ export async function runCouncil(
 		labelToModel,
 		modelToLabel,
 		failedModels,
+		totalCost,
 	};
 }

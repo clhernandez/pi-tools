@@ -150,6 +150,11 @@ async function main() {
 	assert(!synthFailed, "Chairman produced synthesis", result.stage3.synthesis.slice(0, 200));
 	assert(result.stage3.synthesis.length > 100, `Synthesis length: ${result.stage3.synthesis.length} chars`);
 
+	// ── Cost ─────────────────────────────────────────────────────────
+	console.log("\nCost:");
+	assert(result.totalCost >= 0, `Total cost captured: $${result.totalCost.toFixed(6)}`);
+	console.log(`   Total: $${result.totalCost.toFixed(6)}`);
+
 	// ── Label mappings ───────────────────────────────────────────────
 	console.log("\nLabel mappings:");
 	for (const [label, model] of Object.entries(result.labelToModel)) {

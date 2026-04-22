@@ -90,7 +90,10 @@ function formatCompactResult(result: CouncilResult): string {
 	}
 
 	lines.push("");
-	lines.push("_Run `/council results` for full details (individual reviews, peer evaluations)_");
+	const costStr = result.totalCost < 0.001
+		? "< $0.001"
+		: `$${result.totalCost.toFixed(4)}`;
+	lines.push(`_Cost: ${costStr} — Run \`/council results\` for full details_`);
 
 	return lines.join("\n");
 }
