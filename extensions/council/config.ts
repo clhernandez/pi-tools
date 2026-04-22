@@ -20,7 +20,13 @@ export type ConfigLoadResult =
 	| { ok: true; config: CouncilConfig }
 	| { ok: false; error: string };
 
-const CONFIG_PATH = path.join(os.homedir(), ".pi", "council.json");
+export const CONFIG_PATH = path.join(os.homedir(), ".pi", "council.json");
+
+export function saveConfig(config: CouncilConfig): void {
+	const dir = path.dirname(CONFIG_PATH);
+	if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+	fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2) + "\n", "utf-8");
+}
 
 export function loadConfig(): ConfigLoadResult {
 	let raw: CouncilConfigFile = {};

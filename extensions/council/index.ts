@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { BorderedLoader, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { loadConfig, type ReviewType } from "./config.js";
+import { BorderedLoader, ModelSelectorComponent, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { loadConfig, saveConfig, CONFIG_PATH, type ReviewType, type CouncilConfig } from "./config.js";
 import { runCouncil, type CouncilResult, type ProgressEvent } from "./council.js";
 
 type ModelState = "pending" | "running" | "done" | "failed";
@@ -137,7 +137,118 @@ function formatFullResult(result: CouncilResult): string {
 	return lines.join("\n");
 }
 
+// Stub so ModelSelectorComponent doesn't save as pi's default model
+const settingsManagerStub = { setDefaultModelAndProvider: () => {} };
+
+// Pick a single model using pi's built-in model selector UI
+async function pickModel(
+	ctx: Parameters<Parameters<ExtensionAPI["registerCommand"]>[1]["handler"]>[1],
+	title: string,
+	currentModelId?: string,
+): Promise<string | undefined> {
+	const currentModel = currentModelId
+		? ctx.modelRegistry.find(
+				currentModelId.split("/")[0],
+				currentModelId.split("/").slice(1).join("/"),
+		  )
+		: undefined;
+
+	return ctx.ui.custom<string | undefined>((tui, theme, kb, done) => {
+		const selector = new ModelSelectorComponent(
+			tui,
+			currentModel,
+			settingsManagerStub as any,
+			ctx.modelRegistry,
+			[],
+			(model) => done(`${model.provider}/${model.id}`),
+			() => done(undefined),
+		);
+		return selector;
+	});
+}
+
 export default function (pi: ExtensionAPI) {
+	// /council-setup — configure council models and chairman
+	pi.registerCommand("council-setup", {
+		description: "Configure council models and chairman",
+		handler: async (_args, ctx) => {
+			// Load existing config (or defaults)
+			const existing = loadConfig();
+			const current: CouncilConfig = existing.ok
+				? existing.config
+				: { models: [], chairman: "", timeout: 120 };
+
+			// Show current state
+			const currentSummary = current.models.length > 0
+				? `Current: ${current.models.length} models, chairman: ${current.chairman}`
+				: "No config yet";
+			ctx.ui.notify(currentSummary, "info");
+
+			// Step 1: pick council models (loop until done)
+			const models: string[] = [...current.models];
+
+			while (true) {
+				const summary = models.length === 0
+					? "No models yet (need at least 2)"
+					: models.map((m, i) => `${i + 1}. ${m}`).join("  |  ");
+
+				const action = await ctx.ui.select(
+					`🏛️ Council models (${models.length}):\n${summary}`,
+					[
+						"➕ Add a model",
+						...models.map((m, i) => `❌ Remove: ${m}`),
+						"✅ Done selecting models",
+					],
+				);
+				if (!action || action === "✅ Done selecting models") break;
+
+				if (action === "➕ Add a model") {
+					const picked = await pickModel(ctx, "Add council model");
+					if (picked && !models.includes(picked)) models.push(picked);
+					else if (picked) ctx.ui.notify("Model already in council.", "warning");
+				} else {
+					// Remove by matching the model string in the label
+					const removeIdx = models.findIndex((m) => action.includes(m));
+					if (removeIdx !== -1) models.splice(removeIdx, 1);
+				}
+			}
+
+			if (models.length < 2) {
+				ctx.ui.notify("Need at least 2 models. Setup cancelled.", "warning");
+				return;
+			}
+
+			// Step 2: pick chairman
+			const chairmanChoice = await ctx.ui.select(
+				"👑 Who should be the chairman (synthesizer)?",
+				[
+					...models.map((m) => `From council: ${m}`),
+					"🔍 Pick a different model",
+				],
+			);
+			if (!chairmanChoice) return;
+
+			let chairman: string;
+			if (chairmanChoice === "🔍 Pick a different model") {
+				const picked = await pickModel(ctx, "Pick chairman model", current.chairman);
+				if (!picked) return;
+				chairman = picked;
+			} else {
+				chairman = models.find((m) => chairmanChoice.includes(m))!;
+			}
+
+			// Step 3: confirm + save
+			const confirmed = await ctx.ui.confirm(
+				"💾 Save council config?",
+				`Models:\n${models.map((m, i) => `  ${i + 1}. ${m}`).join("\n")}\n\nChairman: ${chairman}\n\nSaved to: ${CONFIG_PATH}`,
+			);
+			if (!confirmed) return;
+
+			saveConfig({ models, chairman, timeout: current.timeout });
+			ctx.ui.notify(`✅ Council config saved! ${models.length} models + chairman: ${chairman}`, "info");
+		},
+	});
+
 	// /council results — show full detail of last run
 	pi.registerCommand("council results", {
 		description: "Show full details of the last council review",
