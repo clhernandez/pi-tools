@@ -70,17 +70,17 @@ ${reviewsText}`;
 export function buildStage3Prompt(
 	originalContent: string,
 	reviewType: ReviewType,
-	reviews: Array<{ model: string; content: string }>,
-	rankings: Array<{ model: string; rankedLabels: string[]; labelToModel: Record<string, string> }>,
+	reviews: Array<{ label: string; content: string }>,
+	rankings: Array<{ reviewer: string; rankedLabels: string[] }>,
 ): string {
 	const reviewsText = reviews
-		.map(({ model, content }) => `## Review by ${model}\n\n${content}`)
+		.map(({ label, content }) => `## ${label}\n\n${content}`)
 		.join("\n\n---\n\n");
 
 	const rankingsText = rankings
-		.map(({ model, rankedLabels, labelToModel }) => {
-			const named = rankedLabels.map((label, i) => `${i + 1}. ${labelToModel[label] ?? label}`).join("\n");
-			return `### ${model}'s ranking:\n${named}`;
+		.map(({ reviewer, rankedLabels }) => {
+			const ranked = rankedLabels.map((label, i) => `${i + 1}. ${label}`).join("\n");
+			return `### ${reviewer}'s ranking:\n${ranked}`;
 		})
 		.join("\n\n");
 
