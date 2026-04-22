@@ -54,6 +54,10 @@ export async function queryModel(
 			.map((c) => c.text)
 			.join("");
 
+		if (!content && response.stopReason) {
+			return { model: modelId, content: "", error: `Empty response. Stop reason: ${response.stopReason}` };
+		}
+
 		return { model: modelId, content };
 	} catch (err) {
 		return { model: modelId, content: "", error: err instanceof Error ? err.message : String(err) };
@@ -76,9 +80,11 @@ export async function queryModelsParallel(
 			onProgress?.({ type: "start", model: m });
 			const r = await queryModel(m, prompt, timeoutSecs, getApiKeyAndHeaders, signal);
 			const hasContent = r.content.trim().length > 0;
-			const ok = !r.error && hasContent;
-			const error = r.error ?? (hasContent ? undefined : "Empty response");
-			onProgress?.({ type: "done", model: m, ok, error });
+			if (!hasContent && !r.error) {
+				r.error = "Empty response";
+			}
+			const ok = !r.error;
+			onProgress?.({ type: "done", model: m, ok, error: r.error });
 			return r;
 		}),
 	);
