@@ -77,7 +77,14 @@ async function queryModelOnce(
 					{ role: "user", content: [{ type: "text", text: prompt }], timestamp: Date.now() },
 				],
 			},
-			{ apiKey: auth.apiKey, headers: auth.headers, signal: controller.signal },
+			{
+				apiKey: auth.apiKey,
+				headers: auth.headers,
+				signal: controller.signal,
+				// Models like grok-4 / gemini-3.1-pro require reasoning to be enabled.
+				// complete() uses the raw provider stream, which reads `reasoningEffort`.
+				...(model.reasoning ? { reasoningEffort: "medium" } : {}),
+			},
 		);
 
 		const content = response.content
