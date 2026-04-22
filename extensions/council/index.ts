@@ -250,7 +250,7 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	// /council results — show full detail of last run
-	pi.registerCommand("council results", {
+	pi.registerCommand("council-results", {
 		description: "Show full details of the last council review",
 		handler: async (_args, ctx) => {
 			if (!lastResult) {
