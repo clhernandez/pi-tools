@@ -132,21 +132,36 @@ export async function runCouncil(
 		failed: !!r.error,
 	}));
 
-	// Stage 2
+	// Stage 2 — each model evaluates only the OTHER models' reviews (not its own)
 	const stage2Models = successfulStage1.map((r) => r.model);
 	onStageStart(2, stage2Models);
-	const anonymizedReviews = successfulStage1.map((r) => ({
+
+	const allAnonymizedReviews = successfulStage1.map((r) => ({
+		model: r.model,
 		label: modelToLabel[r.model],
 		content: r.content,
 	}));
-	const stage2Prompt = buildStage2Prompt(anonymizedReviews, reviewType);
-	const rawStage2 = await queryModelsParallel(
-		stage2Models,
-		stage2Prompt,
-		config.timeout,
-		getApiKeyAndHeaders,
-		(e) => onProgress?.(2, e),
-		signal,
+
+	const rawStage2 = await Promise.all(
+		successfulStage1.map(async (reviewer) => {
+			// Exclude the reviewer's own review
+			const peersReviews = allAnonymizedReviews
+				.filter((r) => r.model !== reviewer.model)
+				.map((r) => ({ label: r.label, content: r.content }));
+			const prompt = buildStage2Prompt(peersReviews, reviewType);
+			onProgress?.(2, { type: "start", model: reviewer.model });
+			const results = await queryModelsParallel(
+				[reviewer.model],
+				prompt,
+				config.timeout,
+				getApiKeyAndHeaders,
+				undefined,
+				signal,
+			);
+			const r = results[0];
+			onProgress?.(2, { type: "done", model: reviewer.model, ok: !r.error, error: r.error });
+			return r;
+		}),
 	);
 
 	const validLabels = Object.keys(labelToModel);

@@ -63,7 +63,6 @@ function formatCompactResult(result: CouncilResult): string {
 	if (result.aggregateRankings.length > 0) {
 		lines.push("---\n");
 		const medals = ["🥇", "🥈", "🥉"];
-		const total = result.aggregateRankings.length;
 		lines.push("📊 **Peer Rankings** — council members voted on which review was most useful:\n");
 		result.aggregateRankings.forEach((r, i) => {
 			const medal = medals[i] ?? `${i + 1}.`;
@@ -72,7 +71,9 @@ function formatCompactResult(result: CouncilResult): string {
 				.map((s2) => {
 					const pos = s2.ranking.indexOf(result.modelToLabel[r.model]);
 					if (pos === -1) return null;
-					const place = pos === 0 ? "best" : pos === total - 1 ? "worst" : `#${pos + 1}`;
+					// Use this reviewer's ranking length (they skip their own review)
+					const last = s2.ranking.length - 1;
+					const place = pos === 0 ? "best" : pos === last ? "worst" : `#${pos + 1}`;
 					const reviewer = result.modelToLabel[s2.reviewerModel] ?? s2.reviewerModel;
 					return `${reviewer} → ${place}`;
 				})
