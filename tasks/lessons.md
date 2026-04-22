@@ -7,3 +7,4 @@
 - For small follow-up tasks, do a fast state check first and avoid over-orchestrating with long-running subagent loops when a quick direct assessment will do.
 - When a user points to an existing built-in UI behavior (like Pi's loader/spinner), verify the actual exported component/API and reuse that implementation instead of approximating it with a custom text-based clone.
 - When testing animated TUI behavior, treat hangs or frozen loaders as root-cause bugs first; do not continue layering UI changes until the lifecycle of timers/components is understood and safe.
+- When sending multiple parallel API requests to the same provider (e.g., OpenRouter), always stagger requests and add retry with exponential backoff. Rate limits commonly cause the Nth concurrent request to fail, making it look like a position-dependent bug.
