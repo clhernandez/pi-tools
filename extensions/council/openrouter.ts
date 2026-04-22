@@ -55,7 +55,8 @@ export async function queryModel(
 			.join("");
 
 		if (!content && response.stopReason) {
-			return { model: modelId, content: "", error: `Empty response. Stop reason: ${response.stopReason}` };
+			const detail = (response as any).errorMessage ? ` - ${(response as any).errorMessage}` : "";
+			return { model: modelId, content: "", error: `Empty response. Stop reason: ${response.stopReason}${detail}` };
 		}
 
 		return { model: modelId, content };
