@@ -175,6 +175,21 @@ class PokemonView: NSView {
 
     override var isFlipped: Bool { false }
 
+    /// Rectángulo clickeable: muy pequeño, ceñido al cuerpo visible del pokémon.
+    /// Los frames PMD tienen mucho padding transparente (para animaciones
+    /// tipo “Attack”) y además la ventana es más alta para albergar emoji
+    /// y burbuja de diálogo — nada de eso debe capturar clicks.
+    /// Coordenadas en el espacio de `bounds` (origen abajo-izq, Y crece hacia arriba).
+    func spriteHitRect() -> NSRect {
+        // Caja que cubre el cuerpo + cabeza del pokémon, sin llegar a la zona
+        // donde aparecen el emoji de humor y la burbuja de diálogo.
+        let w: CGFloat = 44
+        let h: CGFloat = 48
+        let x = (bounds.width - w) / 2
+        let y: CGFloat = 4   // el sprite se dibuja con spriteY = 0
+        return NSRect(x: x, y: y, width: w, height: h)
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext,
               let mgr = spriteManager,
@@ -310,7 +325,10 @@ class PokemonOverlayWindow: NSWindow {
         self.backgroundColor = .clear
         self.level = .floating
         self.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-        self.ignoresMouseEvents = false
+        // Por defecto dejamos pasar todos los clicks a las ventanas de atrás.
+        // Un timer en AppController lo pone en `false` únicamente cuando el cursor
+        // está sobre el cuerpo del pokémon.
+        self.ignoresMouseEvents = true
         self.hasShadow = false
     }
 
@@ -331,6 +349,7 @@ class AppController {
     var animTimer: Timer?
     var moodTimer: Timer?
     var messageTimer: Timer?
+    var hitTestTimer: Timer?
     var posX: CGFloat
     var posY: CGFloat = 0
     var direction: CGFloat
@@ -397,7 +416,36 @@ class AppController {
 
         startAnimation()
         startWalking()
+        startHitTestTracking()
         startStdinReader()
+    }
+
+    /// Alterna `ignoresMouseEvents` según si el cursor está sobre el cuerpo
+    /// del pokémon. Mientras esté fuera, la ventana es “transparente” a clicks
+    /// y éstos pasan a las ventanas de atrás (terminal, editor, etc.).
+    func startHitTestTracking() {
+        hitTestTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            // Durante un drag mantenemos la ventana activa para no soltar el arrastre.
+            if self.isDragging {
+                if self.window.ignoresMouseEvents { self.window.ignoresMouseEvents = false }
+                return
+            }
+            // Posición del mouse en coordenadas de pantalla (origen abajo-izq).
+            let mouseScreen = NSEvent.mouseLocation
+            let win = self.window.frame
+            // Convertir a coordenadas locales de la ventana (= bounds de la vista).
+            let localX = mouseScreen.x - win.origin.x
+            let localY = mouseScreen.y - win.origin.y
+            let hitRect = self.pokemonView.spriteHitRect()
+            let inside = hitRect.contains(NSPoint(x: localX, y: localY))
+            // Sólo escribimos cuando cambia para no spamear al window server.
+            if inside && self.window.ignoresMouseEvents {
+                self.window.ignoresMouseEvents = false
+            } else if !inside && !self.window.ignoresMouseEvents {
+                self.window.ignoresMouseEvents = true
+            }
+        }
     }
 
     func startAnimation() {
