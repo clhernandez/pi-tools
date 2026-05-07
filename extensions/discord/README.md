@@ -16,38 +16,87 @@ question without spam.
 - `/discord status` shows what's wired up; `!info` inside a thread shows session metadata
 - Opt-in per session (`/discord on`) or auto-start via config / `pi --discord` flag
 
-## 1. Create a Discord bot
+## Quick Start (Interactive Setup)
 
-1. Go to <https://discord.com/developers/applications> → **New Application**.
-2. Open the **Bot** tab.
-3. Click **Reset Token** and copy the token. **Do not share it.** You will paste it into the setup wizard.
-4. Under **Privileged Gateway Intents**, enable **Message Content Intent**.
-5. Open the **OAuth2 → URL Generator** tab.
-6. Scopes: `bot`.
-7. Bot Permissions: `View Channels`, `Send Messages`, `Create Public Threads`, `Send Messages in Threads`, `Manage Threads`, `Read Message History`.
-8. Visit the generated URL and invite the bot to your server.
-
-## 2. Find the required IDs
-
-Enable Developer Mode in Discord (Settings → Advanced → Developer Mode), then right-click to copy IDs.
-
-- **Guild (server) ID** — right-click server name → Copy Server ID.
-- **Parent channel ID** — right-click the text channel where threads should be created → Copy Channel ID.
-- **Your user ID** — right-click your own name → Copy User ID. Only this user's messages are forwarded to pi.
-
-## 3. Run the setup wizard
-
-Inside any pi session:
+Inside any pi session, simply run:
 
 ```
 /discord setup
 ```
 
-You'll be asked for the four values above plus an `autoStart` preference. The wizard
-validates the connection before saving. Config is written to `~/.pi/discord.json`
-with mode `600`.
+The wizard will guide you through each step:
+1. **Bot Token** (from Discord Developer Portal)
+2. **Guild (Server) ID** (right-click server in Discord)
+3. **Parent Channel ID** (where threads will be created)
+4. **Your User ID** (only you can reply to inject messages)
+5. **Auto-start preference**
+6. **Intents verification** (Message Content Intent must be enabled)
+7. **Connection test**
 
-## 4. Use it
+That's it! The wizard validates everything before saving.
+
+---
+
+## Manual Setup (If Needed)
+
+### Step 1: Create a Discord Application & Bot
+
+1. Go to https://discord.com/developers/applications
+2. Click **"New Application"** and give it a name
+3. Go to the **"Bot"** tab on the left
+4. Click **"Add Bot"**
+5. Under the bot name, click **"Reset Token"** and **copy it**
+   - ⚠️ **Do NOT share this token** — it has full bot permissions
+6. Go to **"OAuth2"** → **"URL Generator"** on the left
+
+### Step 2: Configure Bot Permissions
+
+In the **URL Generator**:
+
+**Scopes:** Check `bot`
+
+**Permissions:** Check these:
+- ☑ View Channels
+- ☑ Send Messages
+- ☑ Create Public Threads
+- ☑ Send Messages in Threads
+- ☑ Manage Threads
+- ☑ Read Message History
+
+Copy the generated URL at the bottom and **open it in your browser** to invite the bot to your server.
+
+### Step 3: Enable Privileged Intents
+
+⚠️ **Critical step** — without this, you'll get "Disallowed Intents" error.
+
+1. Go to your Application's **"Bot"** tab
+2. Scroll down to **"Privileged Gateway Intents"**
+3. Enable **both**:
+   - ☑ Server Members Intent
+   - ☑ Message Content Intent
+4. Click **"Save Changes"** at the top
+
+### Step 4: Get Required IDs
+
+Enable **Developer Mode** in Discord:
+- Settings → Advanced → Developer Mode
+
+Then:
+- **Guild (Server) ID**: Right-click your server name → Copy Server ID
+- **Parent Channel ID**: Right-click a text channel → Copy Channel ID
+- **Your User ID**: Right-click your name/avatar → Copy User ID
+
+### Step 5: Run Setup in pi
+
+```
+/discord setup
+```
+
+Follow the prompts and paste your IDs when asked.
+
+---
+
+## Usage
 
 | Command | Effect |
 |---|---|
@@ -57,32 +106,121 @@ with mode `600`.
 | `/discord setup` | Re-run the wizard to update config |
 | `pi --discord` | Auto-start the mirror for this launch |
 | `pi --discord=false` | Disable autoStart for this launch even if enabled in config |
-| `!info` (typed in the thread) | Bot echoes session metadata (host, cwd, branch, model) |
+| `!info` (in Discord thread) | Bot echoes session metadata (host, cwd, branch, model) |
 
-## Anti-spam rules
+## How It Works
 
-- Only the **final assistant message** of each agent turn is posted to Discord.
-- Tool calls, tool results, and streaming intermediates are NOT posted.
-- Messages longer than 1900 chars are split into multiple Discord messages.
-- If the assistant turn ends with only tool calls (no final text), nothing is posted.
+1. **Session starts** → thread auto-created in Discord (if autoStart enabled or `/discord on`)
+2. **You ask Claude** → final response auto-posted to Discord thread
+3. **You reply in Discord** → message injected back to pi as user input
+4. **Thread auto-named** → includes session cwd + first prompt
+5. **Session ends** → thread auto-archived (history preserved)
 
-## Security notes
+## Anti-Spam Rules
 
-- `~/.pi/discord.json` contains the bot token. The extension writes it with `chmod 600`. Keep it that way.
-- The bot token lets anyone act as the bot in all servers it's invited to. Only invite the bot to servers you control.
-- Messages from any user other than the configured `ownerId` in the thread are silently dropped. There is no command that lets other users inject prompts.
-- The bot needs Message Content Intent because we forward message content to pi. If you are not comfortable granting this, do not use this extension.
+- Only the **final assistant message** of each turn is posted
+- Tool calls, results, and streaming intermediates are **NOT posted**
+- Messages longer than 1900 chars are split across multiple Discord messages
+- If the turn ends with only tool calls (no final text), nothing is posted
 
-## Multiple concurrent sessions
+## Security
 
-Every pi process opens its own websocket to Discord's gateway using the same bot token.
-Discord allows this; each process filters `messageCreate` by its own `threadId`.
-If you have 5 pi sessions running, you'll get 5 threads in the parent channel, each
-named after the cwd + the first prompt of the session.
+- **Config file**: `~/.pi/discord.json` stored with `chmod 600` (read/write by owner only)
+- **Bot token**: Never shared, kept in your home directory
+- **Message filtering**: Only your Discord user ID can inject messages (no one else)
+- **Permissions**: Bot has minimal permissions (only what it needs for threads)
+- **Intent**: Message Content Intent required because we forward message text to pi
 
 ## Troubleshooting
 
-- **"parentChannelId ... is not a text channel"** — make sure the ID points at a plain text channel, not a voice/forum/category.
-- **No messages arrive in Discord** — check `/discord status`. If `Bot: disconnected`, run `/discord on`. If still failing, check token and intent settings.
-- **Replies from Discord don't reach pi** — confirm `ownerId` matches YOUR Discord user id (not the bot's). Use `!info` in the thread and cross-check.
-- **Thread reuse broke** — session persistence uses `pi.appendEntry` data. If you lost the session file or started a brand-new session, a new thread will be created.
+### Error: "Unknown Guild"
+
+The bot isn't in your server OR you copied the wrong Guild ID.
+
+**Fix:**
+1. Verify the bot appears in your Discord server (left sidebar)
+2. Get the correct Guild ID: Right-click server → Copy Server ID (not the bot name)
+3. Try `/discord setup` again
+
+### Error: "Disallowed Intents"
+
+Message Content Intent isn't enabled.
+
+**Fix:**
+1. Discord Developer Portal → Your App → Bot tab
+2. Scroll to "Privileged Gateway Intents"
+3. Enable ☑ Message Content Intent
+4. Click "Save Changes"
+5. Try `/discord setup` again
+
+### Error: "Invalid Token"
+
+The bot token is wrong or expired.
+
+**Fix:**
+1. Generate a new token: Developer Portal → Bot → Reset Token
+2. Run `/discord setup` again and paste the new token
+
+### Thread not created / No messages in Discord
+
+Check `/discord status`:
+- If `Bot: disconnected`, run `/discord on`
+- If `Config: missing`, run `/discord setup`
+- If still not working, check Discord Developer Portal intents are enabled
+
+### Replies in Discord don't reach pi
+
+Verify the `ownerId` is correct.
+
+**Fix:**
+1. In Discord, type `!info` in the thread
+2. Bot will echo your user ID
+3. Make sure it matches what you entered in setup
+4. If not, run `/discord setup` again with the correct ID
+
+---
+
+## Multiple Sessions
+
+Each pi session gets its own thread. If you have 5 pi terminals open:
+
+```
+#channel
+├── pi · project-1 · "refactor auth module"
+├── pi · api-server · "debug jwt validation"
+├── pi · frontend · "add dark mode"
+├── pi · scripts · "migration script"
+└── pi · rust-thing · "optimize query"
+```
+
+Each thread has its own message history and is independent.
+
+---
+
+## Config Location
+
+Config is stored at: `~/.pi/discord.json`
+
+Example:
+```json
+{
+  "token": "MTI...",
+  "guildId": "123456789",
+  "parentChannelId": "987654321",
+  "ownerId": "555555555",
+  "autoStart": true,
+  "threadArchiveMinutes": 60
+}
+```
+
+You can edit this manually if needed (keep `chmod 600`).
+
+---
+
+## Questions?
+
+- Check `/discord status` — shows connection state
+- Type `!info` in a Discord thread — shows session metadata
+- Run `/discord setup` again to update config
+
+Enjoy your Discord-connected pi sessions! 🎉
