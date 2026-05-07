@@ -110,11 +110,18 @@ Follow the prompts and paste your IDs when asked.
 
 ## How It Works
 
-1. **Session starts** → thread auto-created in Discord (if autoStart enabled or `/discord on`)
+1. **Session starts** → thread auto-created in Discord + embed posted to channel
 2. **You ask Claude** → final response auto-posted to Discord thread
 3. **You reply in Discord** → message injected back to pi as user input
 4. **Thread auto-named** → includes session cwd + first prompt
 5. **Session ends** → thread auto-archived (history preserved)
+6. **Auto-archive** → inactive threads auto-archive after 1 hour (keeps channel clean)
+
+## Channel Organization
+
+**New Session Notifications:** When a session starts, a clean embed appears in your parent channel showing project, host, branch, and model. This makes it easy to see all active sessions.
+
+**Auto-Archive:** Threads automatically archive after 1 hour of inactivity (configured in setup). Keeps the channel clean while preserving history.
 
 ## Anti-Spam Rules
 

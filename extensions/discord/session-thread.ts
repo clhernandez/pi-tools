@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 import * as os from "node:os";
 import * as path from "node:path";
 import { execSync } from "node:child_process";
-import type { DiscordBot } from "./bot.js";
+import type { DiscordBot, SessionMetadata } from "./bot.js";
 import type { DiscordConfig } from "./config.js";
 
 export const DISCORD_THREAD_ENTRY = "discord-thread";
@@ -34,16 +34,12 @@ export function persistThreadId(pi: ExtensionAPI, ctx: ExtensionContext, threadI
   pi.appendEntry(DISCORD_THREAD_ENTRY, data);
 }
 
-export interface SessionMetadata {
-  host: string;
-  cwd: string;
+export interface SessionMetadataExt extends SessionMetadata {
   basename: string;
-  branch: string | null;
-  model: string;
   sessionFile: string | null;
 }
 
-export function collectMetadata(ctx: ExtensionContext): SessionMetadata {
+export function collectMetadata(ctx: ExtensionContext): SessionMetadataExt {
   const model = ctx.model
     ? `${ctx.model.provider}/${ctx.model.id}`
     : "unknown";
@@ -72,18 +68,18 @@ function readGitBranch(cwd: string): string | null {
   }
 }
 
-export function initialThreadName(meta: SessionMetadata): string {
+export function initialThreadName(meta: SessionMetadataExt): string {
   const time = new Date().toTimeString().slice(0, 5);
   return `pi · ${meta.basename} · ${time}`;
 }
 
-export function renamedThreadName(meta: SessionMetadata, firstPrompt: string): string {
+export function renamedThreadName(meta: SessionMetadataExt, firstPrompt: string): string {
   const clean = firstPrompt.replace(/\s+/g, " ").trim();
   const truncated = clean.length > 60 ? `${clean.slice(0, 57)}…` : clean;
   return `pi · ${meta.basename} · ${truncated}`;
 }
 
-export function metadataBlock(meta: SessionMetadata): string {
+export function metadataBlock(meta: SessionMetadataExt): string {
   const lines: string[] = [];
   lines.push("**pi session**");
   lines.push(`🖥️  Host: \`${meta.host}\``);
@@ -115,5 +111,14 @@ export async function ensureThread(
   const msgId = await bot.sendToThread(threadId, metadataBlock(meta));
   await bot.pinMessage(threadId, msgId).catch(() => undefined);
   persistThreadId(pi, ctx, threadId);
+  
+  // Send embed to parent channel (new session notification)
+  await bot.sendSessionStartEmbed(threadId, {
+    host: meta.host,
+    cwd: meta.cwd,
+    branch: meta.branch,
+    model: meta.model,
+  }).catch(() => undefined);
+  
   return { threadId, created: true };
 }

@@ -10,6 +10,13 @@ import {
 } from "discord.js";
 import type { DiscordConfig } from "./config.js";
 
+export interface SessionMetadata {
+  host: string;
+  cwd: string;
+  branch: string | null;
+  model: string;
+}
+
 export interface IncomingMessage {
   threadId: string;
   authorId: string;
@@ -88,6 +95,52 @@ export class DiscordBot {
       reason: "pi session mirror",
     });
     return thread.id;
+  }
+
+  async sendSessionStartEmbed(threadId: string, metadata: { host: string; cwd: string; branch: string | null; model: string }): Promise<void> {
+    if (!this.parentChannel) return;
+    try {
+      await this.parentChannel.send({
+        embeds: [
+          {
+            color: 0x5865f2, // Discord blurple
+            title: "🟢 New Pi Session",
+            fields: [
+              {
+                name: "📁 Project",
+                value: `\`${metadata.cwd.split("/").pop() || metadata.cwd}\``,
+                inline: true,
+              },
+              {
+                name: "🖥️ Host",
+                value: `\`${metadata.host}\``,
+                inline: true,
+              },
+              metadata.branch
+                ? {
+                    name: "🌿 Branch",
+                    value: `\`${metadata.branch}\``,
+                    inline: true,
+                  }
+                : null,
+              {
+                name: "🤖 Model",
+                value: `\`${metadata.model}\``,
+                inline: true,
+              },
+              {
+                name: "Full Path",
+                value: `\`\`\`${metadata.cwd}\`\`\``,
+                inline: false,
+              },
+            ].filter(Boolean) as any[],
+            timestamp: new Date(),
+          },
+        ],
+      });
+    } catch {
+      // silent fail on embed send
+    }
   }
 
   async renameThread(threadId: string, newName: string): Promise<void> {
