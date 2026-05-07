@@ -69,13 +69,30 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("agent_end", async (event, ctx) => {
-    if (!state.bot || !state.threadId) return;
+    if (!state.threadId || !state.config) return;
+
+    // Ensure bot is connected (reconnect if needed)
+    if (!state.bot) {
+      try {
+        const newBot = new DiscordBot({
+          config: state.config,
+          onMessage: (msg) => handleIncomingMessage(pi, ctx, state, msg),
+          onError: () => {}, // silent
+        });
+        await newBot.login();
+        state.bot = newBot;
+      } catch {
+        return; // silent fail, don't spam user
+      }
+    }
+
     const text = extractFinalAssistantText(event);
     if (!text) return;
     try {
       await sendAssistantMessage(state.bot, state.threadId, text);
     } catch (err) {
-      ctx.ui.notify(`Discord mirror failed: ${(err as Error).message}`, "error");
+      // silent fail on send, don't interrupt user
+      console.error(`[discord] send failed: ${(err as Error).message}`);
     }
   });
 
@@ -116,30 +133,37 @@ export default function (pi: ExtensionAPI) {
   });
 }
 
+function handleIncomingMessage(
+  pi: ExtensionAPI,
+  ctx: ExtensionContext,
+  state: State,
+  msg: { threadId: string; authorId: string; content: string; isBot: boolean },
+) {
+  if (!state.threadId || msg.threadId !== state.threadId) return;
+  if (msg.isBot) return;
+  if (msg.authorId !== state.config!.ownerId) return;
+  const content = msg.content.trim();
+  if (!content) return;
+  if (content.startsWith("!")) {
+    if (content === "!info" && state.threadId && state.bot) {
+      const meta = collectMetadata(ctx);
+      state.bot.sendToThread(state.threadId, metadataBlock(meta)).catch(() => undefined);
+    }
+    return;
+  }
+  try {
+    pi.sendUserMessage(content, { deliverAs: "followUp" });
+  } catch (err) {
+    ctx.ui.notify(`Discord → pi inject failed: ${(err as Error).message}`, "error");
+  }
+}
+
 async function startMirror(pi: ExtensionAPI, ctx: ExtensionContext, state: State): Promise<void> {
   if (!state.config) return; // silent: autoStart without config is a no-op
   if (state.bot && state.threadId) return; // already on
   const bot = new DiscordBot({
     config: state.config,
-    onMessage: (msg) => {
-      if (!state.threadId || msg.threadId !== state.threadId) return;
-      if (msg.isBot) return;
-      if (msg.authorId !== state.config!.ownerId) return;
-      const content = msg.content.trim();
-      if (!content) return;
-      if (content.startsWith("!")) {
-        if (content === "!info" && state.threadId && state.bot) {
-          const meta = collectMetadata(ctx);
-          state.bot.sendToThread(state.threadId, metadataBlock(meta)).catch(() => undefined);
-        }
-        return; // any ! message is handled here, never forwarded
-      }
-      try {
-        pi.sendUserMessage(content, { deliverAs: "followUp" });
-      } catch (err) {
-        ctx.ui.notify(`Discord → pi inject failed: ${(err as Error).message}`, "error");
-      }
-    },
+    onMessage: (msg) => handleIncomingMessage(pi, ctx, state, msg),
     onError: (err) => ctx.ui.notify(`Discord error: ${(err as Error).message}`, "error"),
   });
   try {
@@ -159,11 +183,7 @@ async function handleSetup(ctx: ExtensionCommandContext, state: State) {
   if (cfg) state.config = cfg;
 }
 
-async function handleOn(
-  pi: ExtensionAPI,
-  ctx: ExtensionCommandContext,
-  state: State,
-) {
+async function handleOn(pi: ExtensionAPI, ctx: ExtensionCommandContext, state: State) {
   if (!state.config) {
     ctx.ui.notify("No config. Run /discord setup first.", "error");
     return;
