@@ -2,18 +2,27 @@
   "name": "@nacho/pi-superpowers",
   "version": "1.0.0",
   "description": "Nacho's superpowers: brainstorming, systematic debugging, Rust skills, and more",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "pi": {
-    "extensions": ["./extensions"],
-    "skills": ["./skills"],
-    "prompts": ["./prompts"]
+    "extensions": [
+      "./extensions"
+    ],
+    "skills": [
+      "./skills"
+    ],
+    "prompts": [
+      "./prompts"
+    ]
   },
   "dependencies": {
-    "@tintinweb/pi-subagents": "^0.5.2"
+    "@tintinweb/pi-subagents": "^0.5.2",
+    "discord.js": "^14.26.4"
   },
   "peerDependencies": {
-    "@mariozechner/pi-ai": "*",
     "@mariozechner/pi-agent-core": "*",
+    "@mariozechner/pi-ai": "*",
     "@mariozechner/pi-coding-agent": "*",
     "@mariozechner/pi-tui": "*",
     "@sinclair/typebox": "*"
