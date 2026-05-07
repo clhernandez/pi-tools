@@ -4,63 +4,36 @@ import { loadConfig, saveConfig, CONFIG_PATH, type DiscordConfig } from "./confi
 
 export async function runSetupWizard(ctx: ExtensionCommandContext): Promise<DiscordConfig | null> {
   const existing = safeLoad();
+  ctx.ui.notify(existing ? "Updating config..." : "Setting up Discord mirror...", "info");
 
-  ctx.ui.notify(
-    existing
-      ? `Existing config found at ${CONFIG_PATH}. Values will be used as defaults.`
-      : "No Discord config found. Let's create one.",
-    "info",
-  );
-
-  const token = await ctx.ui.input({
-    title: "Discord bot token",
-    message: "Paste the bot token from https://discord.com/developers/applications",
-    default: existing?.token ?? "",
-    secret: true,
-  });
+  const token = await ctx.ui.input("Discord bot token", "Get from https://discord.com/developers/applications");
   if (!token) return null;
 
-  const guildId = await ctx.ui.input({
-    title: "Guild (server) ID",
-    message: "Right-click your server > Copy Server ID (Developer Mode must be on)",
-    default: existing?.guildId ?? "",
-  });
+  const guildId = await ctx.ui.input("Guild (server) ID", "Right-click server > Copy Server ID");
   if (!guildId) return null;
 
-  const parentChannelId = await ctx.ui.input({
-    title: "Parent channel ID",
-    message: "Threads will be created under this text channel. Right-click channel > Copy Channel ID",
-    default: existing?.parentChannelId ?? "",
-  });
+  const parentChannelId = await ctx.ui.input("Parent channel ID", "Channel for threads - Right-click > Copy Channel ID");
   if (!parentChannelId) return null;
 
-  const ownerId = await ctx.ui.input({
-    title: "Your Discord user ID",
-    message: "Only messages from this user will be forwarded back to pi. Right-click yourself > Copy User ID",
-    default: existing?.ownerId ?? "",
-  });
+  const ownerId = await ctx.ui.input("Your Discord user ID", "Right-click yourself > Copy User ID");
   if (!ownerId) return null;
 
-  const autoStart = await ctx.ui.confirm(
-    "Auto-start?",
-    "Open a thread automatically every time pi starts? (you can still use /discord on/off manually)",
-  );
+  const autoStart = (await ctx.ui.confirm("Auto-start?", "Enable auto-start on session launch?")) ?? false;
 
   const candidate: DiscordConfig = {
     token,
     guildId,
     parentChannelId,
     ownerId,
-    autoStart: autoStart ?? false,
+    autoStart,
     threadArchiveMinutes: existing?.threadArchiveMinutes ?? 60,
   };
 
-  ctx.ui.setStatus("discord-wizard", "Testing connection…");
   const bot = new DiscordBot({ config: candidate, onMessage: () => {} });
   try {
+    ctx.ui.notify("Testing connection...", "info");
     await bot.login();
   } catch (err) {
-    ctx.ui.setStatus("discord-wizard", "");
     ctx.ui.notify(`Connection failed: ${(err as Error).message}`, "error");
     await bot.destroy().catch(() => undefined);
     const retry = await ctx.ui.confirm("Retry?", "Fix values and try again?");
@@ -68,10 +41,9 @@ export async function runSetupWizard(ctx: ExtensionCommandContext): Promise<Disc
     return null;
   }
   await bot.destroy();
-  ctx.ui.setStatus("discord-wizard", "");
 
   saveConfig(candidate);
-  ctx.ui.notify(`Config saved to ${CONFIG_PATH} (chmod 600).`, "success");
+  ctx.ui.notify("Discord config saved ✓", "success");
   return candidate;
 }
 
