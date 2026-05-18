@@ -119,6 +119,7 @@ Create `~/.pi/council.json` with your OpenRouter API key and the models you want
 | **writing-skills** | Create new skills or edit existing ones |
 | **find-skills** | Discover and install agent skills |
 | **using-superpowers** | Establish how to find and use skills |
+| **improve-codebase-architecture** | Find deepening opportunities — refactors that turn shallow modules into deep ones for testability and AI-navigability |
 
 ### Prompt Templates
 
