@@ -1,0 +1,29 @@
+# Copy this file to docs/audits/audit-config.yaml in your project and edit.
+# Every field is optional; defaults match the values below.
+
+# Auditor models. 1–4 entries. Default is the first 3.
+# Format: pi fuzzy name ("sonnet", "opus") OR provider/model-id ("openrouter/anthropic/claude-opus-4.6").
+auditors:
+  - sonnet
+  - opus
+  - gpt-5
+
+# Judge model. Reads anonymized reports + peer rankings + actual source code.
+# Should be a strong reasoning model.
+judge: opus
+
+# Lens skill applied by each auditor. Examples:
+#   rust-review                    (default)
+#   improve-codebase-architecture
+#   rust-perf
+#   rust-doc-comments
+lens: rust-review
+
+# Verification gate. Every command must exit 0 before the audit is considered complete.
+# The defaults below cover most Rust workspaces; override per project.
+verification:
+  must_pass:
+    - cargo build --workspace --all-targets
+    - cargo test --workspace --all-features
+    - cargo clippy --workspace --all-targets --all-features -- -D warnings
+    - cargo fmt --all -- --check
