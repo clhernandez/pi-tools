@@ -162,3 +162,45 @@ SKILL.md's Procedure Step 3 and in the Hard Rules section:
 If the agent aborts on partial failure instead of continuing, add to Common Rationalizations:
 `"One auditor failed, the results are incomplete." → Partial results are still valuable. Continue with survivors per Step 3.`
 And commit: `refactor(auditing-codebase): strengthen failure tolerance wording`
+
+## Scenario 5 — End-to-end smoke test
+
+**Status:** Deferred — this repo (`pi-tools`) has no Rust crates. Run this
+scenario on a real Rust project when deploying the skill.
+
+**Instructions for when running:**
+1. Pick the smallest crate in `crates/` (by line count)
+2. Confirm `cargo test` and `cargo clippy -- -D warnings` are green before starting
+3. Run the skill with N=2 auditors to keep it cheap
+4. After completion, verify:
+
+**Pass criteria:**
+- [ ] Branch created: `audit/<module>-<YYYY-MM-DD>`
+- [ ] Commits on branch in order:
+  - `audit: add raw audit reports for <module>`
+  - `audit: add consolidated findings for <module>`
+  - `audit: add remediation plan for <module>`
+  - *(implementation task commits)*
+  - `audit: verification passed for <module>`
+- [ ] Files in `docs/audits/`:
+  - `<module>-a.md` (non-empty, has `## Findings`)
+  - `<module>-b.md` (non-empty, has `## Findings`)
+  - `<module>-consolidated.md` (has all 6 required sections)
+  - `<module>-remediation-plan.md`
+  - `<module>-verification.md` (all commands exit 0)
+- [ ] Each Confirmed finding in consolidated.md has a verbatim code excerpt
+- [ ] Appendix D shows label → model mapping
+- [ ] No source files modified outside `docs/audits/` except by the remediation plan
+- [ ] `cargo test --workspace` passes on the final state of the branch
+
+**Structural verification (completed 2026-05-21):**
+All skill files verified present and well-formed:
+- SKILL.md: present, all 9 required sections present, 1044 words (under 1500)
+- procedure.md: present, Steps 0–9 all present (10 steps total)
+- audit-config.example.yaml: present, valid YAML
+- auditor-prompt-template.md: present, 15 placeholders
+- peer-ranking-prompt-template.md: present, 10 placeholders
+- judge-prompt-template.md: present, 20 placeholders
+
+### Result
+<To be filled when run on a real Rust project>
