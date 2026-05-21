@@ -19,19 +19,43 @@ them in order. Do not skip steps.
 2. Resolve effective values: CLI flags > config file > defaults.
 3. Determine `N = --auditors` (default 3, clamped to 1–4) and pick the first N
    entries from `auditors`. Assign labels `a, b, c, d` in order.
-4. **Verify model IDs before dispatching.** Pi resolves model names by fuzzy
-   match — an unrecognized name silently maps to the closest built-in model,
-   with no warning. The same model has a different ID depending on the provider
-   (e.g. `deepseek-v4-pro` vs `deepseek/deepseek-v4-pro` on OpenRouter).
-   For each auditor and the judge:
-   - Check the ID exists exactly in pi's model list.
-   - If the user has OpenRouter or another gateway configured, the ID format
-     is `provider-prefix/model-id` (e.g. `deepseek/deepseek-v4-pro`,
-     `google/gemini-3.5-flash`, `z-ai/glm-5.1`, `anthropic/claude-opus-4.7`).
-   - If an ID does not match any known model, STOP and tell the user which
-     provider format to use. Do NOT silently proceed with a wrong model.
-   - See `audit-config.example.yaml` for the correct IDs per provider.
-5. Announce the plan to the user verbatim:
+4. **Verify model IDs before dispatching** — this is a hard requirement.
+
+   Run:
+   ```bash
+   pi --list-models 2>&1
+   ```
+   This lists every model the user actually has available (authenticated
+   providers only). It is the source of truth — NOT the built-in catalog.
+
+   For each configured auditor and the judge, check that its ID appears
+   verbatim in the second column of that output. Example check:
+   ```bash
+   pi --list-models 2>&1 | awk '{print $2}' | grep -Fx "deepseek/deepseek-v4-pro"
+   ```
+   (Replace the grep pattern with each model ID to check.)
+
+   Build two lists:
+   - `available` — IDs that matched exactly
+   - `missing`   — IDs that did not match
+
+   **If `missing` is non-empty:**
+   - STOP. Do NOT create the branch.
+   - Show the user a table:
+     ```
+     Model not found in pi --list-models:
+       ✘ deepseek-v4-pro
+     Closest available (from pi --list-models):
+       ✔ deepseek/deepseek-v4-pro   (openrouter)
+     ```
+     Find the closest match by searching for the bare model name
+     (e.g. `deepseek-v4-pro`) anywhere in the list-models output.
+   - Ask the user: “Update the config to use these IDs and re-run, or
+     pick different models?”
+   - Do NOT auto-correct the config. The user decides.
+
+   **If all IDs are in `available`:** proceed to Step 5.
+5. Announce the verified plan to the user verbatim:
    > Auditing `{target}` with N={N} auditors (`<list>`), judge `<judge>`, lens
    > `<lens>`. Branch `audit/{module}-{YYYY-MM-DD}`. Verification commands:
    > `<comma-separated list>`. Proceed?
