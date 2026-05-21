@@ -11,15 +11,20 @@ them in order. Do not skip steps.
    `src/` and ask the user to pick one, several, or `all`. If `all`, process
    each module sequentially (one branch per module, repeating Steps 0–6). Stop
    on the first module whose verification gate fails and surface it to the user.
+3. Do NOT proceed to Step 1 until the target is confirmed.
 
-### Step 1 — Load configuration
+### Step 1 — Load configuration and present the plan for approval
 
-1. Read `docs/audits/audit-config.yaml` if present. If missing, use the defaults
-   shown in the Configuration section above.
+This step does NOT create a branch. Its only output is a confirmation card
+that the user approves (or adjusts) before anything else happens.
+
+1. Read `docs/audits/audit-config.yaml` if present. If missing, use the
+   defaults shown in the Configuration section above.
 2. Resolve effective values: CLI flags > config file > defaults.
-3. Determine `N = --auditors` (default 3, clamped to 1–4) and pick the first N
-   entries from `auditors`. Assign labels `a, b, c, d` in order.
-4. **Verify model IDs before dispatching** — this is a hard requirement.
+3. Determine `N = --auditors` (default 3, clamped to 1–4) and pick the first
+   N entries from `auditors`. Assign labels `a, b, c, d` in order.
+
+4. **Verify model availability** — hard requirement before showing the card.
 
    Run:
    ```bash
@@ -29,37 +34,64 @@ them in order. Do not skip steps.
    providers only). It is the source of truth — NOT the built-in catalog.
 
    For each configured auditor and the judge, check that its ID appears
-   verbatim in the second column of that output. Example check:
+   verbatim in the second column of that output:
    ```bash
-   pi --list-models 2>&1 | awk '{print $2}' | grep -Fx "deepseek/deepseek-v4-pro"
+   pi --list-models 2>&1 | awk '{print $2}' | grep -Fx "<model-id>"
    ```
-   (Replace the grep pattern with each model ID to check.)
 
    Build two lists:
    - `available` — IDs that matched exactly
    - `missing`   — IDs that did not match
 
-   **If `missing` is non-empty:**
-   - STOP. Do NOT create the branch.
-   - Show the user a table:
-     ```
-     Model not found in pi --list-models:
-       ✘ deepseek-v4-pro
-     Closest available (from pi --list-models):
-       ✔ deepseek/deepseek-v4-pro   (openrouter)
-     ```
-     Find the closest match by searching for the bare model name
-     (e.g. `deepseek-v4-pro`) anywhere in the list-models output.
-   - Ask the user: “Update the config to use these IDs and re-run, or
-     pick different models?”
-   - Do NOT auto-correct the config. The user decides.
+   For each missing ID, search for the bare model name anywhere in the
+   output to find the closest available alternative.
 
-   **If all IDs are in `available`:** proceed to Step 5.
-5. Announce the verified plan to the user verbatim:
-   > Auditing `{target}` with N={N} auditors (`<list>`), judge `<judge>`, lens
-   > `<lens>`. Branch `audit/{module}-{YYYY-MM-DD}`. Verification commands:
-   > `<comma-separated list>`. Proceed?
-5. Wait for user confirmation before continuing.
+5. **Present the confirmation card.** Show this exact format, filling in
+   real values. Mark missing models with ✘ and available ones with ✔.
+
+   ```
+   ┌──────────────────────────────────────────────────────┐
+   │  Audit plan — please review before we start          │
+   ├──────────────────────────────────────────────────────┤
+   │  Target    : crates/stream-gateway                   │
+   │  Lens      : rust-review                             │
+   │  Branch    : audit/stream-gateway-2026-05-21         │
+   ├──────────────────────────────────────────────────────┤
+   │  Auditors                                            │
+   │  ✔ a → deepseek/deepseek-v4-pro                     │
+   │  ✔ b → google/gemini-3.5-flash                      │
+   │  ✘ c → glm-5.1  ← NOT FOUND                         │
+   │       closest: z-ai/glm-5.1 (openrouter)            │
+   ├──────────────────────────────────────────────────────┤
+   │  Judge     : ✔ anthropic/claude-opus-4.7             │
+   ├──────────────────────────────────────────────────────┤
+   │  Verify    : cargo build / test / clippy / fmt       │
+   └──────────────────────────────────────────────────────┘
+   ```
+
+   Then ask:
+   > “Does this look right? You can adjust before we start:
+   > - Change the **lens** (e.g. `improve-codebase-architecture`, `rust-perf`)
+   > - Swap or replace a **model** (use the exact ID from `pi --list-models`)
+   > - Change the **number of auditors** (1–4)
+   >
+   > Type **go** to start, or tell me what to change.”
+
+6. **Wait for the user’s response.** Handle each case:
+
+   - **“go” / “yes” / “start” / “ok”**: proceed to Step 2.
+   - **Any missing models (✘) and user has not addressed them**: do NOT
+     proceed. Remind the user that missing models must be resolved first.
+   - **User changes a model**: update the effective config in memory,
+     re-run the availability check for the new ID, update the card,
+     show it again. Repeat until all models are ✔ and user says go.
+   - **User changes the lens**: update effective config in memory,
+     show the updated card, ask again.
+   - **User changes N**: re-pick the first N auditors from the list,
+     show the updated card, ask again.
+   - **User says no / cancel**: stop entirely. No branch created.
+
+   Do NOT proceed to Step 2 while any auditor or judge has ✘ status.
 
 ### Step 2 — Create dedicated branch
 
