@@ -2,22 +2,38 @@
 # Every field is optional; defaults match the values below.
 
 # Auditor models. 1–4 entries. Default is the first 3.
-# Use exact model IDs to avoid fuzzy-match surprises.
-# Run `/model` in pi to see all available models and their exact IDs.
 #
-# Verified IDs (as of 2026-05-21):
-#   deepseek provider  → deepseek-v4-pro
-#   google provider    → gemini-3.5-flash
-#   zai provider       → glm-5.1
-#   anthropic provider → claude-opus-4-7
+# IMPORTANT: Use the exact model ID for the provider you have authenticated in pi.
+# The same model has a different ID depending on the provider. Run `/model` in pi
+# to see which providers are active and their exact IDs.
+#
+# DeepSeek V4 Pro:
+#   deepseek provider      → deepseek-v4-pro
+#   openrouter             → deepseek/deepseek-v4-pro
+#   vercel-ai-gateway      → deepseek/deepseek-v4-pro
+#
+# Gemini 3.5 Flash:
+#   google provider        → gemini-3.5-flash
+#   openrouter             → google/gemini-3.5-flash
+#   vercel-ai-gateway      → google/gemini-3.5-flash
+#
+# GLM 5.1:
+#   zai provider           → glm-5.1
+#   openrouter             → z-ai/glm-5.1
+#   vercel-ai-gateway      → zai/glm-5.1
 auditors:
-  - deepseek-v4-pro
-  - gemini-3.5-flash
-  - glm-5.1
+  - deepseek-v4-pro        # change to deepseek/deepseek-v4-pro if using openrouter
+  - gemini-3.5-flash       # change to google/gemini-3.5-flash if using openrouter
+  - glm-5.1                # change to z-ai/glm-5.1 if using openrouter
 
 # Judge model. Reads anonymized reports + peer rankings + actual source code.
 # Should be a strong reasoning model.
-judge: claude-opus-4-7
+#
+# Claude Opus 4.7:
+#   anthropic provider     → claude-opus-4-7
+#   openrouter             → anthropic/claude-opus-4.7
+#   vercel-ai-gateway      → anthropic/claude-opus-4.7
+judge: claude-opus-4-7     # change to anthropic/claude-opus-4.7 if using openrouter
 
 # Lens skill applied by each auditor. Examples:
 #   rust-review                    (default)

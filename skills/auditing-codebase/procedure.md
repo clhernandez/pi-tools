@@ -20,11 +20,17 @@ them in order. Do not skip steps.
 3. Determine `N = --auditors` (default 3, clamped to 1–4) and pick the first N
    entries from `auditors`. Assign labels `a, b, c, d` in order.
 4. **Verify model IDs before dispatching.** Pi resolves model names by fuzzy
-   match — an unrecognized name silently maps to the closest built-in model.
-   For each auditor and the judge, confirm the ID exists exactly as written by
-   checking against the built-in model list (run `/model` or `--list-models`
-   in pi). If an ID does not match, STOP and tell the user before creating the
-   branch. Do NOT silently proceed with a wrong model.
+   match — an unrecognized name silently maps to the closest built-in model,
+   with no warning. The same model has a different ID depending on the provider
+   (e.g. `deepseek-v4-pro` vs `deepseek/deepseek-v4-pro` on OpenRouter).
+   For each auditor and the judge:
+   - Check the ID exists exactly in pi's model list.
+   - If the user has OpenRouter or another gateway configured, the ID format
+     is `provider-prefix/model-id` (e.g. `deepseek/deepseek-v4-pro`,
+     `google/gemini-3.5-flash`, `z-ai/glm-5.1`, `anthropic/claude-opus-4.7`).
+   - If an ID does not match any known model, STOP and tell the user which
+     provider format to use. Do NOT silently proceed with a wrong model.
+   - See `audit-config.example.yaml` for the correct IDs per provider.
 5. Announce the plan to the user verbatim:
    > Auditing `{target}` with N={N} auditors (`<list>`), judge `<judge>`, lens
    > `<lens>`. Branch `audit/{module}-{YYYY-MM-DD}`. Verification commands:
