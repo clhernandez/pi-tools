@@ -4,13 +4,13 @@
 # Auditor models. 1–4 entries. Default is the first 3.
 # Format: pi fuzzy name ("sonnet", "opus") OR provider/model-id ("openrouter/anthropic/claude-opus-4.6").
 auditors:
-  - sonnet
-  - opus
-  - gpt-5
+  - deepseek-v4-pro
+  - gemini-3.5-flash
+  - glm-5.1
 
 # Judge model. Reads anonymized reports + peer rankings + actual source code.
 # Should be a strong reasoning model.
-judge: opus
+judge: opus-4.7
 
 # Lens skill applied by each auditor. Examples:
 #   rust-review                    (default)

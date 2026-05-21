@@ -35,8 +35,8 @@ Looks for `docs/audits/audit-config.yaml` in the repo root. If missing, applies
 these defaults:
 
 ```yaml
-auditors: [sonnet, opus, gpt-5]   # uses first N where N = --auditors flag (default 3)
-judge: opus
+auditors: [deepseek-v4-pro, gemini-3.5-flash, glm-5.1]   # uses first N where N = --auditors flag (default 3)
+judge: opus-4.7
 lens: rust-review
 verification:
   must_pass:
