@@ -1,6 +1,6 @@
 ---
 name: auditing-codebase
-description: Use when auditing a Rust codebase, module, or workspace with multiple AI auditors and a judge - produces a consolidated, prioritized remediation plan with verified implementation on a dedicated branch
+description: Use when auditing a Rust codebase, module, or workspace and wanting cross-model consensus on findings, a false-positive-filtered consolidated report, and a reproducible audit trail in git
 ---
 
 # Auditing Codebase
