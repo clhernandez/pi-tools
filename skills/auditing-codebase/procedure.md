@@ -19,7 +19,13 @@ them in order. Do not skip steps.
 2. Resolve effective values: CLI flags > config file > defaults.
 3. Determine `N = --auditors` (default 3, clamped to 1–4) and pick the first N
    entries from `auditors`. Assign labels `a, b, c, d` in order.
-4. Announce the plan to the user verbatim:
+4. **Verify model IDs before dispatching.** Pi resolves model names by fuzzy
+   match — an unrecognized name silently maps to the closest built-in model.
+   For each auditor and the judge, confirm the ID exists exactly as written by
+   checking against the built-in model list (run `/model` or `--list-models`
+   in pi). If an ID does not match, STOP and tell the user before creating the
+   branch. Do NOT silently proceed with a wrong model.
+5. Announce the plan to the user verbatim:
    > Auditing `{target}` with N={N} auditors (`<list>`), judge `<judge>`, lens
    > `<lens>`. Branch `audit/{module}-{YYYY-MM-DD}`. Verification commands:
    > `<comma-separated list>`. Proceed?

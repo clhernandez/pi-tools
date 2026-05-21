@@ -36,7 +36,7 @@ these defaults:
 
 ```yaml
 auditors: [deepseek-v4-pro, gemini-3.5-flash, glm-5.1]   # uses first N where N = --auditors flag (default 3)
-judge: opus-4.7
+judge: claude-opus-4-7
 lens: rust-review
 verification:
   must_pass:
