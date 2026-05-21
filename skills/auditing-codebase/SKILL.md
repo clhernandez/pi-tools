@@ -70,7 +70,7 @@ docs/audits/
   {module}-c.md                       raw report, auditor c (if N≥3)
   {module}-d.md                       raw report, auditor d (if N=4)
   {module}-consolidated.md            judge output
-  {module}-remediation-plan.md        writing-plans output
+  {module}-todos.md                   TODO list derived from consolidated
 ```
 
 Branch: `audit/{module}-{YYYY-MM-DD}` (always; never worktrees).
@@ -78,7 +78,7 @@ Branch: `audit/{module}-{YYYY-MM-DD}` (always; never worktrees).
 Commits (in order on the audit branch):
 1. `audit: add raw audit reports for {module}`
 2. `audit: add consolidated findings for {module}`
-3. `audit: add remediation plan for {module}`
+3. `audit: add TODO list for {module}`
 4. *(one or more commits from subagent-driven-development, per task)*
 5. `audit: verification passed for {module}` — only if the gate passes
 
@@ -169,7 +169,7 @@ See [procedure.md](./procedure.md) for the full step-by-step orchestration proce
 ## Cross-Referenced Skills
 
 - **REQUIRED SUB-SKILL:** `superpowers:dispatching-parallel-agents` — for Steps 3 and 4.
-- **REQUIRED SUB-SKILL:** `superpowers:writing-plans` — for Step 7.
+- `superpowers:writing-plans` — optional, only if you want a full implementation plan instead of the default TODO list.
 - **REQUIRED SUB-SKILL:** `superpowers:subagent-driven-development` — for Step 8.
 - **REQUIRED SUB-SKILL:** `superpowers:verification-before-completion` — the philosophy behind Step 9.
 

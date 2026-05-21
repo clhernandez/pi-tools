@@ -115,30 +115,65 @@ In that case, set `aggregate_ranking = []` and continue to Step 5.
 Tell the user:
 > Consolidated report saved to `docs/audits/{module}-consolidated.md`. Please
 > review it (edit findings, demote severity, or remove items you reject) and
-> let me know when ready to generate the remediation plan.
+> let me know when ready to generate the TODO list.
 
 Wait for the user's go-ahead. If they edit the file before answering, that is
 fine — the next step reads from disk.
 
-### Step 7 — Remediation plan
+### Step 7 — TODO list
 
-1. Invoke the `writing-plans` skill. Tell it:
-   - Input spec: `docs/audits/{module}-consolidated.md`
-   - Output path: `docs/audits/{module}-remediation-plan.md`
-   - Task ordering rule: Quick Wins first, then Critical → High → Medium → Low.
-     Within a bucket, cheap effort first.
-2. After `writing-plans` saves the plan, commit:
-   ```bash
-   git add docs/audits/{module}-remediation-plan.md
-   git commit -m "audit: add remediation plan for {module}"
-   ```
+Read `docs/audits/{module}-consolidated.md` and generate
+`docs/audits/{module}-todos.md` directly — do NOT invoke `writing-plans`.
+The consolidated report already contains all the prioritization information
+needed; a full plan would be redundant and expensive.
+
+Write `docs/audits/{module}-todos.md` with this structure:
+
+```markdown
+# TODOs: {module}
+Generated from: docs/audits/{module}-consolidated.md
+Date: {YYYY-MM-DD}
+
+## Quick Wins
+- [ ] [QW-001] <title> — `path:Lx-Ly` — <one-line action>
+- [ ] [QW-002] ...
+
+## Critical
+- [ ] [F-001] <title> — `path:Lx-Ly` — <one-line action>
+
+## High
+- [ ] [F-002] ...
+
+## Medium
+- [ ] ...
+
+## Low
+- [ ] ...
+
+## Disputed (needs human decision before acting)
+- [ ] [D-001] <summary of disagreement>
+```
+
+Rules for generating the TODO list:
+- One checkbox per Confirmed finding from the consolidated report.
+- Order: Quick Wins first, then Critical → High → Medium → Low.
+- Within a bucket: small effort before large effort.
+- Each line: `- [ ] [ID] <title> — \`file:Lx-Ly\` — <one-line action>`.
+- Disputed items get their own section at the bottom — do not mix with Confirmed.
+- Do NOT include False positives or Out-of-scope items.
+
+After writing the file, commit:
+```bash
+git add docs/audits/{module}-todos.md
+git commit -m "audit: add TODO list for {module}"
+```
 
 ### Step 8 — Implementation
 
 Invoke the `subagent-driven-development` skill with
-`docs/audits/{module}-remediation-plan.md` as the plan. Each task in that plan
-becomes its own subagent and its own commit, per that skill's discipline. Do
-NOT inline-execute.
+`docs/audits/{module}-todos.md` as the task list. Each checkbox becomes its
+own subagent and its own commit, per that skill's discipline. Do NOT
+inline-execute.
 
 ### Step 9 — Verification gate (HARD GATE)
 
