@@ -69,11 +69,24 @@ that the user approves (or adjusts) before anything else happens.
    └──────────────────────────────────────────────────────┘
    ```
 
+   Include workspace mode in the card:
+
+   ```
+   ├──────────────────────────────────────────────────────┤
+   │  Workspace : branch (audit/stream-gateway-2026-05-21) │
+   │             or worktree? [branch]│
+   └──────────────────────────────────────────────────────┘
+   ```
+
    Then ask:
    > “Does this look right? You can adjust before we start:
    > - Change the **lens** (e.g. `improve-codebase-architecture`, `rust-perf`)
    > - Swap or replace a **model** (use the exact ID from `pi --list-models`)
    > - Change the **number of auditors** (1–4)
+   > - Change **workspace mode**: `branch` (default — work stays visible in
+   >   your current directory, easy to `git log`) or `worktree` (isolated
+   >   copy of the repo in a separate directory, useful when you want to keep
+   >   your working tree clean during a long audit)
    >
    > Type **go** to start, or tell me what to change.”
 
@@ -89,17 +102,39 @@ that the user approves (or adjusts) before anything else happens.
      show the updated card, ask again.
    - **User changes N**: re-pick the first N auditors from the list,
      show the updated card, ask again.
-   - **User says no / cancel**: stop entirely. No branch created.
+   - **User chooses worktree**: set `workspace_mode = worktree`, update
+     card, ask again.
+   - **User says no / cancel**: stop entirely. No branch or worktree created.
 
    Do NOT proceed to Step 2 while any auditor or judge has ✘ status.
 
-### Step 2 — Create dedicated branch
+### Step 2 — Create workspace
+
+Use the `workspace_mode` the user confirmed in Step 1.
+
+**If `workspace_mode = branch` (default):**
 
 ```bash
 git checkout -b audit/{module}-{YYYY-MM-DD}
 ```
-If the branch already exists, append a `-N` suffix (`-2`, `-3`, ...) until unique.
-Never overwrite an existing audit branch.
+If the branch already exists, append a `-N` suffix (`-2`, `-3`, ...) until
+unique. Never overwrite an existing audit branch.
+
+**If `workspace_mode = worktree`:**
+
+Invoke the `using-git-worktrees` skill. Pass it:
+- Branch name: `audit/{module}-{YYYY-MM-DD}`
+- The skill handles directory selection, `.gitignore` verification, dependency
+  setup, and baseline test run automatically.
+
+Record the worktree path returned by the skill — all subsequent file reads
+and writes in this audit MUST use that path as the working directory.
+
+If the baseline test run in the worktree fails, report the failures and ask
+the user whether to proceed or investigate before continuing.
+
+In both modes the branch name is `audit/{module}-{YYYY-MM-DD}` and all
+subsequent commits land on that branch.
 
 ### Step 3 — Parallel auditing (RED of the audit cycle)
 

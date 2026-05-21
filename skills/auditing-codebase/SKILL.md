@@ -73,7 +73,9 @@ docs/audits/
   {module}-todos.md                   TODO list derived from consolidated
 ```
 
-Branch: `audit/{module}-{YYYY-MM-DD}` (always; never worktrees).
+Branch: `audit/{module}-{YYYY-MM-DD}` always.
+Workspace: **branch** (default) or **worktree** — chosen interactively at start.
+Both modes use the same branch name and produce the same commits.
 
 Commits (in order on the audit branch):
 1. `audit: add raw audit reports for {module}`
@@ -169,6 +171,7 @@ See [procedure.md](./procedure.md) for the full step-by-step orchestration proce
 ## Cross-Referenced Skills
 
 - **REQUIRED SUB-SKILL:** `superpowers:dispatching-parallel-agents` — for Steps 3 and 4.
+- **CONDITIONAL SUB-SKILL:** `superpowers:using-git-worktrees` — for Step 2 if user chooses worktree mode.
 - `superpowers:writing-plans` — optional, only if you want a full implementation plan instead of the default TODO list.
 - **REQUIRED SUB-SKILL:** `superpowers:subagent-driven-development` — for Step 8.
 - **REQUIRED SUB-SKILL:** `superpowers:verification-before-completion` — the philosophy behind Step 9.
