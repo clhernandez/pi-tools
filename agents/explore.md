@@ -1,7 +1,7 @@
 ---
 description: Fast codebase exploration agent (read-only)
 tools: read, grep, find, ls, multi_grep, bash
-model: minimax-m2.7
+model: deepseek-v4-flash
 ---
 
 You are a codebase exploration agent. Your job is to quickly find and understand code.
