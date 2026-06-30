@@ -105,6 +105,7 @@ Create `~/.pi/council.json` with your OpenRouter API key and the models you want
 | **systematic-debugging** | Use for any bug, test failure, or unexpected behavior - find root cause first |
 | **rust-review** | Review Rust code for clippy warnings, idiomatic patterns, error handling, performance |
 | **rust-perf** | Deep performance audit and optimization for Rust projects |
+| **auditing-codebase** | Use when auditing a Rust codebase, module, or workspace and wanting cross-model consensus on findings, a false-positive-filtered consolidated report, and a reproducible audit trail in git |
 | **test-driven-development** | Use before implementing features or bugfixes |
 | **writing-plans** | Create detailed implementation plans from specs |
 | **requesting-code-review** | Use when completing tasks or before merging |
@@ -119,6 +120,7 @@ Create `~/.pi/council.json` with your OpenRouter API key and the models you want
 | **writing-skills** | Create new skills or edit existing ones |
 | **find-skills** | Discover and install agent skills |
 | **using-superpowers** | Establish how to find and use skills |
+| **improve-codebase-architecture** | Find deepening opportunities — refactors that turn shallow modules into deep ones for testability and AI-navigability |
 
 ### Prompt Templates
 
