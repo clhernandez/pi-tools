@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "noImplicitAny": false,
+    "strict": false
+  },
+  "include": ["extensions/**/*.ts", "agents/**/*.ts", "skills/**/*.ts"],
+  "exclude": ["node_modules"]
+}
